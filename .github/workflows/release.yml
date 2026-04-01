@@ -1,0 +1,67 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            git
+
+      - name: Download libmpv
+        shell: msys2 {0}
+        run: |
+          curl -L "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20250202-git-38ad1ed.7z/download" -o mpv-dev.7z
+          7z x mpv-dev.7z -ompv-dev
+          cp mpv-dev/include/mpv/client.h .
+          cp mpv-dev/lib/libmpv.dll.a .
+          cp mpv-dev/libmpv-2.dll .
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          g++ -std=c++17 -O2 -Wall -DUNICODE -D_UNICODE -I. main.cpp -o wallpaper.exe -L. -lmpv -luser32 -lgdi32 -lshcore -ldwmapi -lole32 -mwindows
+
+      - name: Package Release
+        shell: msys2 {0}
+        run: |
+          mkdir release
+          cp wallpaper.exe release/
+          cp libmpv-2.dll release/
+          cp libmpv.dll.a release/
+          cp client.h release/
+          cp README.md release/
+          cp README-en.md release/
+          cp LICENSE release/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/wallpaper.exe
+            release/libmpv-2.dll
+            release/libmpv.dll.a
+            release/client.h
+            release/README.md
+            release/README-en.md
+            release/LICENSE
+          generate_release_notes: true
+          draft: false
+          prerelease: false
