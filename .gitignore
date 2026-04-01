@@ -4,10 +4,6 @@ build/
 # executable
 wallpaper.exe
 
-# mpv library
-libmpv-2.dll
-libmpv.dll.a
-
 # video
 background.mp4
 
