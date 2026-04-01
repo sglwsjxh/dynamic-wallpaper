@@ -41,17 +41,16 @@ jobs:
           cp README-en.md release/
           cp LICENSE release/
 
+      - name: Create Zip
+        shell: pwsh
+        run: |
+          Compress-Archive -Path release/* -DestinationPath dynamic-wallpaper-${{ github.ref_name }}.zip
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            release/wallpaper.exe
-            release/libmpv-2.dll
-            release/libmpv.dll.a
-            release/client.h
-            release/README.md
-            release/README-en.md
-            release/LICENSE
+            dynamic-wallpaper-${{ github.ref_name }}.zip
           generate_release_notes: true
           draft: false
           prerelease: false
