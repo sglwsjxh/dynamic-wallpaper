@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Setup MSYS2
         uses: msys2/setup-msys2@v2
@@ -21,15 +23,6 @@ jobs:
           install: >-
             mingw-w64-ucrt-x86_64-gcc
             git
-
-      - name: Download libmpv
-        shell: msys2 {0}
-        run: |
-          curl -L "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20250202-git-38ad1ed.7z/download" -o mpv-dev.7z
-          7z x mpv-dev.7z -ompv-dev
-          cp mpv-dev/include/mpv/client.h .
-          cp mpv-dev/lib/libmpv.dll.a .
-          cp mpv-dev/libmpv-2.dll .
 
       - name: Build
         shell: msys2 {0}
