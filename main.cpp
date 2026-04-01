@@ -88,7 +88,14 @@ int main() {
     mpv_set_option_string(ctx, "hwdec", "d3d11va");
     mpv_set_option_string(ctx, "vo", "gpu");
     mpv_set_option_string(ctx, "gpu-context", "d3d11");
-    mpv_set_option_string(ctx, "demuxer-max-bytes", "32MiB");
+    mpv_set_option_string(ctx, "gpu-api", "d3d11");
+    mpv_set_option_string(ctx, "scale", "bilinear");
+    mpv_set_option_string(ctx, "dscale", "bilinear");
+    mpv_set_option_string(ctx, "cscale", "bilinear");
+    mpv_set_option_string(ctx, "interpolation", "no");
+    mpv_set_option_string(ctx, "dither", "no");
+    mpv_set_option_string(ctx, "gpu-shader-cache-size", "0");
+    mpv_set_option_string(ctx, "demuxer-max-bytes", "8MiB");
     mpv_set_option_string(ctx, "video-sync", "display-vdrop");
     mpv_set_option_string(ctx, "loop", "inf");
 
