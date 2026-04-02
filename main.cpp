@@ -10,7 +10,7 @@
 void AddToStartup() {
     HKEY hKey;
     auto cwd = std::filesystem::current_path().wstring();
-    std::wstring cmd = L"cmd /c \"cd /d \\\"" + cwd + L"\\\" & start \\\"\\\" \\\"wallpaper.exe\\\"\"";
+    std::wstring cmd = L"cmd /c cd /d \"" + cwd + L"\" & start \"\" \"wallpaper.exe\"";
     
     if (RegOpenKeyExW(HKEY_CURRENT_USER,
                       L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
