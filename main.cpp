@@ -98,6 +98,8 @@ int main() {
     mpv_set_option_string(ctx, "demuxer-max-bytes", "8MiB");
     mpv_set_option_string(ctx, "video-sync", "display-vdrop");
     mpv_set_option_string(ctx, "loop", "inf");
+    mpv_set_option_string(ctx, "panscan", "1.0");
+    mpv_set_option_string(ctx, "panscan", "1.0");
 
     int64_t wid = reinterpret_cast<intptr_t>(hwnd);
     mpv_set_option(ctx, "wid", MPV_FORMAT_INT64, &wid);
