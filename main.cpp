@@ -9,14 +9,14 @@
 // 添加到开机自启动
 void AddToStartup() {
     HKEY hKey;
-    wchar_t exePath[MAX_PATH];
-    GetModuleFileNameW(nullptr, exePath, MAX_PATH);
-
-    if (RegOpenKeyEx(HKEY_CURRENT_USER,
-                     L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
-                     0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS) {
-        RegSetValueEx(hKey, L"DynamicWallpaper", 0, REG_SZ,
-                      (BYTE*)exePath, (wcslen(exePath) + 1) * 2);
+    auto cwd = std::filesystem::current_path().wstring();
+    std::wstring cmd = L"cmd /c \"cd /d \\\"" + cwd + L"\\\" & start \\\"\\\" \\\"wallpaper.exe\\\"\"";
+    
+    if (RegOpenKeyExW(HKEY_CURRENT_USER,
+                      L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                      0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS) {
+        RegSetValueExW(hKey, L"DynamicWallpaper", 0, REG_SZ, 
+                       (const BYTE*)cmd.c_str(), (cmd.length() + 1) * sizeof(wchar_t));
         RegCloseKey(hKey);
     }
 }
@@ -44,16 +44,20 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_DISPLAYCHANGE: 
             PostMessage(hwnd, WM_SIZE, 0, 0);
             break;
+
         case WM_SIZE: {
             int w = LOWORD(lParam), h = HIWORD(lParam);
             if (w > 0 && h > 0) SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, w, h, SWP_NOZORDER);
             break;
         }
-        case WM_POWERBROADCAST: // 休眠/唤醒处理
+
+        // 休眠/唤醒处理
+        case WM_POWERBROADCAST:
             if (wParam == PBT_APMSUSPEND) {
                 // 可在此暂停 mpv 进一步降压（需另起线程调用 mpv_set_option_string(ctx, "pause", "yes")）
             }
             break;
+
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
