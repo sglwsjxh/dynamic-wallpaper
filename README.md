@@ -24,3 +24,9 @@ g++ -std=c++17 -O2 -Wall -DUNICODE -D_UNICODE -I. main.cpp -o wallpaper.exe -L. 
 ## 配置
 
 视频文件默认读取同目录下的 `background.mp4`，可自行替换
+
+## 问题
+release版本由github action自动编译生成，可能缺少的dll文件可以从mingw-w64官网下载
+
+## 许可证
+MIT License

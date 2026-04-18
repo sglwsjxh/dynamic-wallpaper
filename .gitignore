@@ -2,10 +2,10 @@
 build/
 
 # executable
-wallpaper.exe
+*.exe
 
 # video
-background.mp4
+*.mp4
 
 # IDE
 .vscode/
