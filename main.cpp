@@ -5,20 +5,77 @@
 #include <thread>
 #include <chrono>
 #include <winreg.h>
+#include <string>
 
-// 添加到开机自启动
-void AddToStartup() {
+namespace {
+
+std::wstring GetExecutablePath() {
+    std::wstring path(MAX_PATH, L'\0');
+
+    while (true) {
+        DWORD len = GetModuleFileNameW(nullptr, path.data(), static_cast<DWORD>(path.size()));
+        if (len == 0) return L"";
+        if (len < path.size() - 1) {
+            path.resize(len);
+            return path;
+        }
+        path.resize(path.size() * 2);
+    }
+}
+
+std::wstring GetExecutableDir() {
+    std::wstring exePath = GetExecutablePath();
+    size_t pos = exePath.find_last_of(L"\\/");
+    return (pos == std::wstring::npos) ? L"." : exePath.substr(0, pos);
+}
+
+bool RunHiddenProcessAndWait(const std::wstring& commandLine, DWORD* exitCode = nullptr) {
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
+
+    PROCESS_INFORMATION pi{};
+    std::wstring mutableCmd = commandLine;
+
+    BOOL ok = CreateProcessW(nullptr, mutableCmd.data(), nullptr, nullptr, FALSE,
+                             CREATE_NO_WINDOW, nullptr, nullptr, &si, &pi);
+    if (!ok) return false;
+
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    DWORD code = 1;
+    GetExitCodeProcess(pi.hProcess, &code);
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+
+    if (exitCode) *exitCode = code;
+    return true;
+}
+
+// 自动清理旧的注册表 Run 项（如果用户之前安装过旧版本）
+void RemoveLegacyRunEntry() {
     HKEY hKey;
-    auto cwd = std::filesystem::current_path().wstring();
-    std::wstring cmd = L"cmd /c cd /d \"" + cwd + L"\" & start \"\" \"wallpaper.exe\"";
-    
     if (RegOpenKeyExW(HKEY_CURRENT_USER,
                       L"Software\\Microsoft\\Windows\\CurrentVersion\\Run",
                       0, KEY_SET_VALUE, &hKey) == ERROR_SUCCESS) {
-        RegSetValueExW(hKey, L"DynamicWallpaper", 0, REG_SZ, 
-                       (const BYTE*)cmd.c_str(), (cmd.length() + 1) * sizeof(wchar_t));
+        RegDeleteValueW(hKey, L"DynamicWallpaper");
         RegCloseKey(hKey);
     }
+}
+
+}
+
+// 添加到开机自启动
+void EnsureStartupTask() {
+    const std::wstring exePath = GetExecutablePath();
+    if (exePath.empty()) return;
+
+    std::wstring taskCmd =
+        L"schtasks.exe /Create /TN \"DynamicWallpaper\" /SC ONLOGON /DELAY 0000:20 "
+        L"/RL LIMITED /IT /F /TR \"\\\"" + exePath + L"\\\"\"";
+
+    DWORD exitCode = 1;
+    if (RunHiddenProcessAndWait(taskCmd, &exitCode) && exitCode == 0)
+        RemoveLegacyRunEntry();
 }
 
 // 嵌入桌面 WorkerW 层
@@ -66,7 +123,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 int main() {
-	AddToStartup();
+    EnsureStartupTask();
 
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
@@ -79,7 +136,8 @@ int main() {
     EmbedToDesktop(hwnd);
 
     // 初始尺寸（后续由 WM_DISPLAYCHANGE 自动修正）
-    DEVMODE dm = { .dmSize = sizeof(dm) };
+    DEVMODE dm{};
+    dm.dmSize = sizeof(dm);
     EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &dm);
     SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, dm.dmPelsWidth, dm.dmPelsHeight, SWP_SHOWWINDOW);
 
@@ -103,7 +161,6 @@ int main() {
     mpv_set_option_string(ctx, "video-sync", "display-vdrop");
     mpv_set_option_string(ctx, "loop", "inf");
     mpv_set_option_string(ctx, "panscan", "1.0");
-    mpv_set_option_string(ctx, "panscan", "1.0");
 
     int64_t wid = reinterpret_cast<intptr_t>(hwnd);
     mpv_set_option(ctx, "wid", MPV_FORMAT_INT64, &wid);
@@ -113,7 +170,7 @@ int main() {
         return 1;
     }
 
-    std::string path = (std::filesystem::current_path() / "background.mp4").string();
+    std::string path = (std::filesystem::path(GetExecutableDir()) / "background.mp4").u8string();
     const char* args[] = { "loadfile", path.c_str(), nullptr };
     mpv_command(ctx, args);
 
