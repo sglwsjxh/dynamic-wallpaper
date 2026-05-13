@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <tlhelp32.h>
 #include <filesystem>
 #include "client.h"
 #include <iostream>
@@ -27,6 +28,65 @@ std::wstring GetExecutableDir() {
     std::wstring exePath = GetExecutablePath();
     size_t pos = exePath.find_last_of(L"\\/");
     return (pos == std::wstring::npos) ? L"." : exePath.substr(0, pos);
+}
+
+std::wstring GetProcessImagePath(DWORD pid) {
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | SYNCHRONIZE,
+                                 FALSE, pid);
+    if (!process) return L"";
+
+    std::wstring path(MAX_PATH, L'\0');
+    while (true) {
+        DWORD size = static_cast<DWORD>(path.size());
+        if (QueryFullProcessImageNameW(process, 0, path.data(), &size)) {
+            path.resize(size);
+            CloseHandle(process);
+            return path;
+        }
+
+        if (GetLastError() != ERROR_INSUFFICIENT_BUFFER) {
+            CloseHandle(process);
+            return L"";
+        }
+
+        path.resize(path.size() * 2);
+    }
+}
+
+void CloseOldWallpaperProcesses() {
+    const std::wstring currentPath = GetExecutablePath();
+    if (currentPath.empty()) return;
+
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    if (snapshot == INVALID_HANDLE_VALUE) return;
+
+    PROCESSENTRY32W entry{};
+    entry.dwSize = sizeof(entry);
+
+    if (!Process32FirstW(snapshot, &entry)) {
+        CloseHandle(snapshot);
+        return;
+    }
+
+    const DWORD currentPid = GetCurrentProcessId();
+    do {
+        if (entry.th32ProcessID == currentPid) continue;
+
+        std::wstring processPath = GetProcessImagePath(entry.th32ProcessID);
+        if (processPath.empty()) continue;
+
+        if (CompareStringOrdinal(processPath.c_str(), -1, currentPath.c_str(), -1, TRUE) != CSTR_EQUAL)
+            continue;
+
+        HANDLE process = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE, FALSE, entry.th32ProcessID);
+        if (!process) continue;
+
+        TerminateProcess(process, 0);
+        WaitForSingleObject(process, INFINITE);
+        CloseHandle(process);
+    } while (Process32NextW(snapshot, &entry));
+
+    CloseHandle(snapshot);
 }
 
 bool RunHiddenProcessAndWait(const std::wstring& commandLine, DWORD* exitCode = nullptr) {
@@ -123,6 +183,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 int main() {
+    CloseOldWallpaperProcesses();
     EnsureStartupTask();
 
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
