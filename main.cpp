@@ -102,23 +102,35 @@ void EmbedToDesktop(HWND hwnd) {
     if (hWorkerW) SetParent(hwnd, hWorkerW);
 }
 
+void ResizeToDesktop(HWND hwnd) {
+    int width = GetSystemMetrics(SM_CXSCREEN);
+    int height = GetSystemMetrics(SM_CYSCREEN);
+    if (width > 0 && height > 0) {
+        SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, width, height, SWP_NOZORDER | SWP_SHOWWINDOW);
+    }
+}
+
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     static UINT taskbarCreatedMsg = RegisterWindowMessageW(L"TaskbarCreated");
 
     if (msg == taskbarCreatedMsg) {
         EmbedToDesktop(hwnd);
-        PostMessage(hwnd, WM_SIZE, 0, 0);
+        ResizeToDesktop(hwnd);
         return 0;
     }
 
     switch (msg) {
         case WM_DISPLAYCHANGE: 
-            PostMessage(hwnd, WM_SIZE, 0, 0);
+            ResizeToDesktop(hwnd);
             break;
 
         case WM_SIZE: {
             int w = LOWORD(lParam), h = HIWORD(lParam);
-            if (w > 0 && h > 0) SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, w, h, SWP_NOZORDER);
+            if (w <= 0 || h <= 0) {
+                ResizeToDesktop(hwnd);
+            } else {
+                SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, w, h, SWP_NOZORDER);
+            }
             break;
         }
 
@@ -156,7 +168,7 @@ int main() {
     }
 
     HWND hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kWindowClassName, L"",
-                               WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, nullptr, nullptr, wc.hInstance, nullptr);
+                               WS_POPUP | WS_VISIBLE, 0, 0, 0, 0, nullptr, nullptr, wc.hInstance, nullptr);
     if (!hwnd) {
         CloseHandle(singleInstanceMutex);
         return 1;
@@ -164,10 +176,7 @@ int main() {
     EmbedToDesktop(hwnd);
 
     // 初始尺寸（后续由 WM_DISPLAYCHANGE 自动修正）
-    DEVMODE dm{};
-    dm.dmSize = sizeof(dm);
-    EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &dm);
-    SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, dm.dmPelsWidth, dm.dmPelsHeight, SWP_SHOWWINDOW);
+    ResizeToDesktop(hwnd);
 
     mpv_handle* ctx = mpv_create();
     if (!ctx) return 1;
