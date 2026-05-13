@@ -64,17 +64,23 @@ void RemoveLegacyRunEntry() {
     }
 }
 
-HWND FindDesktopWorkerW() {
+HWND FindWallpaperParentWindow() {
     HWND hWorkerW = nullptr;
+    HWND hShellViewHost = nullptr;
     auto enumProc = [](HWND hwnd, LPARAM lParam) -> BOOL {
+        auto* out = reinterpret_cast<std::pair<HWND*, HWND*>*>(lParam);
         if (FindWindowEx(hwnd, nullptr, L"SHELLDLL_DefView", nullptr)) {
-            *reinterpret_cast<HWND*>(lParam) = FindWindowEx(nullptr, hwnd, L"WorkerW", nullptr);
+            *(out->second) = hwnd;
+            *(out->first) = FindWindowEx(nullptr, hwnd, L"WorkerW", nullptr);
             return FALSE;
         }
         return TRUE;
     };
-    EnumWindows(enumProc, reinterpret_cast<LPARAM>(&hWorkerW));
-    return hWorkerW;
+    std::pair<HWND*, HWND*> out{ &hWorkerW, &hShellViewHost };
+    EnumWindows(enumProc, reinterpret_cast<LPARAM>(&out));
+
+    // 优先使用 SHELLDLL_DefView 后面的 WorkerW；没有就退化到 DefView 宿主（通常是 Progman）
+    return hWorkerW ? hWorkerW : hShellViewHost;
 }
 
 }
@@ -98,8 +104,16 @@ void EmbedToDesktop(HWND hwnd) {
     HWND hProgman = FindWindow(L"Progman", L"Program Manager");
     if (hProgman) SendMessage(hProgman, 0x052C, 0, 0);
 
-    HWND hWorkerW = FindDesktopWorkerW();
-    if (hWorkerW) SetParent(hwnd, hWorkerW);
+    HWND hDesktopParent = FindWallpaperParentWindow();
+    if (!hDesktopParent) return;
+
+    SetParent(hwnd, hDesktopParent);
+    LONG_PTR style = GetWindowLongPtrW(hwnd, GWL_STYLE);
+    style &= ~WS_POPUP;
+    style |= WS_CHILD;
+    SetWindowLongPtrW(hwnd, GWL_STYLE, style);
+    SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0,
+                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
 }
 
 void ResizeToDesktop(HWND hwnd) {
