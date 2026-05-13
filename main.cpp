@@ -8,6 +8,8 @@
 #include <string>
 
 namespace {
+constexpr wchar_t kWindowClassName[] = L"LowMemWallpaper";
+constexpr wchar_t kSingleInstanceMutexName[] = L"Local\\DynamicWallpaper_SingleInstance";
 
 std::wstring GetExecutablePath() {
     std::wstring path(MAX_PATH, L'\0');
@@ -62,6 +64,19 @@ void RemoveLegacyRunEntry() {
     }
 }
 
+HWND FindDesktopWorkerW() {
+    HWND hWorkerW = nullptr;
+    auto enumProc = [](HWND hwnd, LPARAM lParam) -> BOOL {
+        if (FindWindowEx(hwnd, nullptr, L"SHELLDLL_DefView", nullptr)) {
+            *reinterpret_cast<HWND*>(lParam) = FindWindowEx(nullptr, hwnd, L"WorkerW", nullptr);
+            return FALSE;
+        }
+        return TRUE;
+    };
+    EnumWindows(enumProc, reinterpret_cast<LPARAM>(&hWorkerW));
+    return hWorkerW;
+}
+
 }
 
 // 添加到开机自启动
@@ -81,22 +96,21 @@ void EnsureStartupTask() {
 // 嵌入桌面 WorkerW 层
 void EmbedToDesktop(HWND hwnd) {
     HWND hProgman = FindWindow(L"Progman", L"Program Manager");
-    SendMessage(hProgman, 0x052C, 0, 0);
+    if (hProgman) SendMessage(hProgman, 0x052C, 0, 0);
 
-    HWND hWorkerW = nullptr;
-    auto enumProc = [](HWND hwnd, LPARAM lParam) -> BOOL {
-        if (FindWindowEx(hwnd, nullptr, L"SHELLDLL_DefView", nullptr)) {
-            *(HWND*)lParam = FindWindowEx(nullptr, hwnd, L"WorkerW", nullptr);
-            return FALSE;
-        }
-        return TRUE;
-    };
-    EnumWindows(enumProc, reinterpret_cast<LPARAM>(&hWorkerW));
-
+    HWND hWorkerW = FindDesktopWorkerW();
     if (hWorkerW) SetParent(hwnd, hWorkerW);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    static UINT taskbarCreatedMsg = RegisterWindowMessageW(L"TaskbarCreated");
+
+    if (msg == taskbarCreatedMsg) {
+        EmbedToDesktop(hwnd);
+        PostMessage(hwnd, WM_SIZE, 0, 0);
+        return 0;
+    }
+
     switch (msg) {
         case WM_DISPLAYCHANGE: 
             PostMessage(hwnd, WM_SIZE, 0, 0);
@@ -123,16 +137,30 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 }
 
 int main() {
+    HANDLE singleInstanceMutex = CreateMutexW(nullptr, TRUE, kSingleInstanceMutexName);
+    if (!singleInstanceMutex || GetLastError() == ERROR_ALREADY_EXISTS) {
+        if (singleInstanceMutex) CloseHandle(singleInstanceMutex);
+        return 0;
+    }
+
     EnsureStartupTask();
 
 	SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW, WndProc, 0, 0,
+    WNDCLASSEXW wc = { sizeof(WNDCLASSEX), CS_HREDRAW | CS_VREDRAW, WndProc, 0, 0,
                   GetModuleHandle(nullptr), nullptr, nullptr, 
-                  (HBRUSH)GetStockObject(BLACK_BRUSH), nullptr, L"LowMemWallpaper", nullptr };
+                  (HBRUSH)GetStockObject(BLACK_BRUSH), nullptr, kWindowClassName, nullptr };
+    if (!RegisterClassExW(&wc)) {
+        CloseHandle(singleInstanceMutex);
+        return 1;
+    }
 
-    HWND hwnd = CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, L"LowMemWallpaper", L"",
+    HWND hwnd = CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, kWindowClassName, L"",
                                WS_CHILD | WS_VISIBLE, 0, 0, 0, 0, nullptr, nullptr, wc.hInstance, nullptr);
+    if (!hwnd) {
+        CloseHandle(singleInstanceMutex);
+        return 1;
+    }
     EmbedToDesktop(hwnd);
 
     // 初始尺寸（后续由 WM_DISPLAYCHANGE 自动修正）
@@ -167,6 +195,7 @@ int main() {
 
     if (mpv_initialize(ctx) < 0) {
         std::cerr << "mpv 初始化失败\n";
+        CloseHandle(singleInstanceMutex);
         return 1;
     }
 
@@ -187,5 +216,6 @@ int main() {
     }
 
     mpv_terminate_destroy(ctx);
+    CloseHandle(singleInstanceMutex);
     return 0;
 }
