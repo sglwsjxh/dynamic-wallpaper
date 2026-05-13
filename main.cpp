@@ -91,7 +91,7 @@ HWND FindWallpaperParentWindow() {
         return TRUE;
     }, reinterpret_cast<LPARAM>(&workerWNoIcons));
     if (workerWNoIcons) return workerWNoIcons;
-
+    if (shellViewHost) return shellViewHost;
     return FindWindowW(L"Progman", L"Program Manager");
 }
 
