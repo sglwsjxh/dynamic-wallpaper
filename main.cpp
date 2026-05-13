@@ -65,22 +65,34 @@ void RemoveLegacyRunEntry() {
 }
 
 HWND FindWallpaperParentWindow() {
-    HWND hWorkerW = nullptr;
-    HWND hShellViewHost = nullptr;
-    auto enumProc = [](HWND hwnd, LPARAM lParam) -> BOOL {
-        auto* out = reinterpret_cast<std::pair<HWND*, HWND*>*>(lParam);
-        if (FindWindowEx(hwnd, nullptr, L"SHELLDLL_DefView", nullptr)) {
-            *(out->second) = hwnd;
-            *(out->first) = FindWindowEx(nullptr, hwnd, L"WorkerW", nullptr);
+    HWND shellViewHost = nullptr;
+    EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+        if (FindWindowExW(hwnd, nullptr, L"SHELLDLL_DefView", nullptr)) {
+            *reinterpret_cast<HWND*>(lParam) = hwnd;
             return FALSE;
         }
         return TRUE;
-    };
-    std::pair<HWND*, HWND*> out{ &hWorkerW, &hShellViewHost };
-    EnumWindows(enumProc, reinterpret_cast<LPARAM>(&out));
+    }, reinterpret_cast<LPARAM>(&shellViewHost));
 
-    // 优先使用 SHELLDLL_DefView 后面的 WorkerW；没有就退化到 DefView 宿主（通常是 Progman）
-    return hWorkerW ? hWorkerW : hShellViewHost;
+    if (shellViewHost) {
+        HWND nextWorkerW = FindWindowExW(nullptr, shellViewHost, L"WorkerW", nullptr);
+        if (nextWorkerW) return nextWorkerW;
+    }
+
+    HWND workerWNoIcons = nullptr;
+    EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+        wchar_t cls[64] = {};
+        GetClassNameW(hwnd, cls, 64);
+        if (wcscmp(cls, L"WorkerW") == 0 &&
+            !FindWindowExW(hwnd, nullptr, L"SHELLDLL_DefView", nullptr)) {
+            *reinterpret_cast<HWND*>(lParam) = hwnd;
+            return FALSE;
+        }
+        return TRUE;
+    }, reinterpret_cast<LPARAM>(&workerWNoIcons));
+    if (workerWNoIcons) return workerWNoIcons;
+
+    return FindWindowW(L"Progman", L"Program Manager");
 }
 
 }
@@ -102,7 +114,11 @@ void EnsureStartupTask() {
 // 嵌入桌面 WorkerW 层
 void EmbedToDesktop(HWND hwnd) {
     HWND hProgman = FindWindow(L"Progman", L"Program Manager");
-    if (hProgman) SendMessage(hProgman, 0x052C, 0, 0);
+    if (hProgman) {
+        DWORD_PTR result = 0;
+        SendMessageTimeoutW(hProgman, 0x052C, 0, 0, SMTO_NORMAL, 1000, &result);
+        SendMessageTimeoutW(hProgman, 0x052C, 0xD, 1, SMTO_NORMAL, 1000, &result);
+    }
 
     HWND hDesktopParent = FindWallpaperParentWindow();
     if (!hDesktopParent) return;
