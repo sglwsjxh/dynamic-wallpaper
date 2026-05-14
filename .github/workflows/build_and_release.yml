@@ -24,21 +24,22 @@ jobs:
           update: true
           install: >-
             mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-make
             git
 
       - name: Build
         shell: msys2 {0}
         run: |
-          g++ -std=c++17 -O2 -Wall -DUNICODE -D_UNICODE -I. main.cpp -o wallpaper.exe -L. -lmpv -luser32 -lgdi32 -lshcore -ldwmapi -lole32 -mwindows -static-libgcc -static-libstdc++ '-Wl,-Bstatic' -lwinpthread '-Wl,-Bdynamic'
+          cmake -S . -B build -G "MinGW Makefiles"
+          cmake --build build --config Release
 
       - name: Package Release
         shell: msys2 {0}
         run: |
-          mkdir release
-          cp wallpaper.exe release/
-          cp libmpv-2.dll release/
-          cp libmpv.dll.a release/
-          cp client.h release/
+          mkdir -p release
+          cp build/wallpaper.exe release/
+          cp build/libmpv-2.dll release/
           cp README.md release/
           cp README-en.md release/
           cp LICENSE release/

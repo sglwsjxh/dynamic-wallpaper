@@ -1,6 +1,6 @@
 <h1 align="center">Dynamic Wallpaper</h1>
 
-<h5 align="center">Set video as Windows desktop wallpaper</h5>
+<h3 align="center">Set video as Windows desktop wallpaper</h3>
 
 <p align="center">
   <a href="README.md">简体中文</a>
@@ -25,10 +25,9 @@ g++ -std=c++17 -O2 -Wall -DUNICODE -D_UNICODE -Ithird_party/mpv/include main.cpp
 
 ## Usage
 
-1. In the repository, `libmpv-2.dll` is stored under `third_party/mpv/bin/`
-2. When building with CMake, the DLL is copied automatically to the same output directory as `wallpaper.exe`
-3. When running the program, make sure `wallpaper.exe`, `libmpv-2.dll`, and `background.mp4` are in the same directory
-4. On first launch, the program will add itself to startup automatically
+1. When running the program, make sure `wallpaper.exe`, `libmpv-2.dll`, and `background.mp4` are in the same directory
+2. On first launch, the program will add itself to startup automatically
+3. Existing users do not need to clear the old registry startup entry, the program will update it automatically
 
 ## Configuration
 
