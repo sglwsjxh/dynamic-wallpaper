@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <tlhelp32.h>
 #include <filesystem>
-#include "client.h"
+#include <mpv/client.h>
 #include <iostream>
 #include <thread>
 #include <chrono>
