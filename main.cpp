@@ -231,7 +231,13 @@ int main() {
         return 1;
     }
 
-    std::string path = (std::filesystem::path(GetExecutableDir()) / "background.mp4").u8string();
+    const auto pathUtf8 = (std::filesystem::path(GetExecutableDir()) / "background.mp4").u8string();
+
+    const std::string path(
+        reinterpret_cast<const char*>(pathUtf8.data()),
+        pathUtf8.size()
+    );
+
     const char* args[] = { "loadfile", path.c_str(), nullptr };
     mpv_command(ctx, args);
 
