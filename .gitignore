@@ -1,5 +1,7 @@
 # build
 build/
+dist/
+release/
 
 # executable
 *.exe
@@ -11,6 +13,7 @@ build/
 .vscode/
 .idea/
 
-# OS
-.DS_Store
-Thumbs.db
+# logs
+logs/
+logs/*.log
+.bak
