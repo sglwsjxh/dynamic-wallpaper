@@ -43,6 +43,7 @@ jobs:
           cp README.md release/
           cp README-en.md release/
           cp LICENSE release/
+          cp -r LICENSES release/
 
       - name: Create Zip
         shell: pwsh
