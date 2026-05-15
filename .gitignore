@@ -12,6 +12,7 @@ release/
 # IDE
 .vscode/
 .idea/
+AGENTS.md
 
 # logs
 logs/

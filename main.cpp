@@ -130,8 +130,8 @@ void EnsureStartupTask() {
     if (exePath.empty()) return;
 
     std::wstring taskCmd =
-        L"schtasks.exe /Create /TN \"DynamicWallpaper\" /SC ONLOGON /DELAY 0000:20 "
-        L"/RL LIMITED /IT /F /TR \"\\\"" + exePath + L"\\\"\"";
+        L"schtasks.exe /Create /TN \"DynamicWallpaper\" /SC ONLOGON /DELAY 0000:15 "
+        L"/RL LIMITED /IT /F /TR \"" + exePath + L"\"";
 
     DWORD exitCode = 1;
     if (RunHiddenProcessAndWait(taskCmd, &exitCode) && exitCode == 0)
