@@ -28,3 +28,7 @@ The video file is read from `background.mp4` in the same directory by default. Y
 ## License
 
 MIT License
+
+## Acknowledgements
+
+- [mpv](https://mpv.io/) — Video playback engine, used under LGPLv2.1+

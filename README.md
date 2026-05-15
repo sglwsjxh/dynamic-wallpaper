@@ -26,4 +26,9 @@ cmake --build build --config Release
 视频文件默认读取同目录下的 `background.mp4`，可自行替换
 
 ## 许可证
+
 MIT License
+
+## 致谢
+
+- [mpv](https://mpv.io/) — 视频播放核心引擎，基于 LGPLv2.1+ 许可使用

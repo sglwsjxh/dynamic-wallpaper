@@ -1,0 +1,32 @@
+mpv (libmpv) — LGPLv2.1+
+==========================
+
+This project uses mpv (libmpv) as a dynamically linked library.
+mpv is Copyright (C) mpv-player/mpv contributors.
+
+Source: https://github.com/mpv-player/mpv
+
+License
+-------
+This build of libmpv is licensed under the GNU Lesser General Public License
+version 2.1 or later (LGPLv2.1+), as published by the Free Software Foundation.
+
+A copy of the LGPLv2.1 license is available at:
+    https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+
+The full source code for mpv is available at:
+    https://github.com/mpv-player/mpv
+
+Build Source
+------------
+This LGPL build was sourced from zhongfly/mpv-winbuild:
+    https://github.com/zhongfly/mpv-winbuild
+Build tag: 2026-05-15-4498c0ff81
+File: mpv-dev-lgpl-x86_64-v3-20260515-git-4498c0ff81.7z
+
+Disclaimer
+----------
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Lesser General Public License for more details.
