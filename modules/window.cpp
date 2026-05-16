@@ -41,7 +41,7 @@ void SetFullscreen(HWND hwnd) {
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
         case WM_DISPLAYCHANGE:
-            PostMessage(hwnd, WM_SIZE, 0, 0);
+            SetFullscreen(hwnd);
             break;
 
         case WM_SIZE: {
@@ -54,7 +54,9 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_POWERBROADCAST:
             if (wParam == PBT_APMSUSPEND) {
             }
-            if (wParam == PBT_APMRESUMESUSPEND) {
+            if (wParam == PBT_APMRESUMEAUTOMATIC) {
+                EmbedDesktop(hwnd);
+                SetFullscreen(hwnd);
             }
             break;
 
