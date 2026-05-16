@@ -6,7 +6,17 @@ if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the build type." FORCE)
 endif()
 
-add_executable(wallpaper WIN32 main.cpp)
+add_executable(wallpaper WIN32
+    main.cpp
+    modules/log.cpp
+    modules/path.cpp
+    modules/process.cpp
+    modules/startup.cpp
+    modules/window.cpp
+    modules/media.cpp
+)
+
+target_include_directories(wallpaper PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_compile_features(wallpaper PRIVATE cxx_std_17)
 
