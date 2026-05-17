@@ -10,4 +10,7 @@ namespace media {
     bool LoadBackgroundVideo(mpv_handle* ctx);
     void VerifyHwdec(mpv_handle* ctx);
     void DestroyPlayer(mpv_handle* ctx);
+
+    void LogPlayerInfo(mpv_handle* ctx);
+    void LogDisplayInfo();
 }

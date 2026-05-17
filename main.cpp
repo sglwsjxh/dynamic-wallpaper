@@ -39,6 +39,8 @@ int main() {
         LOG_WARN << "background.mp4 未找到，壁纸未加载";
 
     media::VerifyHwdec(ctx);
+    media::LogDisplayInfo();
+    media::LogPlayerInfo(ctx);
 
     MSG msg;
     while (GetMessage(&msg, nullptr, 0, 0) > 0) {

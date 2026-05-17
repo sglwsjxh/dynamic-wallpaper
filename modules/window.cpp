@@ -1,4 +1,6 @@
 #include "window.h"
+#include "log.h"
+#include "media.h"
 
 namespace win {
 
@@ -40,9 +42,15 @@ void SetFullscreen(HWND hwnd) {
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-        case WM_DISPLAYCHANGE:
+        case WM_DISPLAYCHANGE: {
+            int newW = LOWORD(lParam), newH = HIWORD(lParam);
+            LOG_INFO << "WM_DISPLAYCHANGE: 分辨率变化 -> " << newW << "x" << newH;
             SetFullscreen(hwnd);
+
+            mpv_handle* ctx = reinterpret_cast<mpv_handle*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
+            if (ctx) media::LogPlayerInfo(ctx);
             break;
+        }
 
         case WM_SIZE: {
             int w = LOWORD(lParam), h = HIWORD(lParam);
