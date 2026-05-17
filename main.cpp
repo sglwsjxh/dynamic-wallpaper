@@ -40,14 +40,27 @@ int main() {
 
     media::VerifyHwdec(ctx);
     media::LogDisplayInfo();
-    media::LogPlayerInfo(ctx);
 
     MSG msg;
-    while (GetMessage(&msg, nullptr, 0, 0) > 0) {
-        TranslateMessage(&msg);
-        DispatchMessage(&msg);
+    for (;;) {
+        while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            if (msg.message == WM_QUIT)
+                goto exit_loop;
+            TranslateMessage(&msg);
+            DispatchMessage(&msg);
+        }
+
+        mpv_event* ev = mpv_wait_event(ctx, 0);
+        if (ev->event_id == MPV_EVENT_FILE_LOADED) {
+            LOG_INFO << "mpv 视频加载完成";
+            media::LogPlayerInfo(ctx);
+        } else if (ev->event_id == MPV_EVENT_SHUTDOWN) {
+            break;
+        }
+        Sleep(8);
     }
 
+exit_loop:
     media::DestroyPlayer(ctx);
     LOG_INFO << "程序退出";
     return 0;

@@ -10,7 +10,7 @@ static FILE* g_logFile = nullptr;
 namespace logm {
     void Init() {
         std::wstring logPath = path::GetExeDir() + L"\\wallpaper.log";
-        g_logFile = _wfopen(logPath.c_str(), L"w");
+        g_logFile = _wfopen(logPath.c_str(), L"a");
     }
 
     Logger::Logger(const char* level) : level_(level) {}

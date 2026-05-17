@@ -14,6 +14,7 @@ void ConfigureLowOverhead(mpv_handle* ctx) {
     mpv_set_option_string(ctx, "audio", "no");
     mpv_set_option_string(ctx, "ao", "null");
     mpv_set_option_string(ctx, "hwdec", "d3d11va");
+    mpv_set_option_string(ctx, "d3d11-adapter", "NVIDIA GeForce RTX 5070 Laptop GPU");
     mpv_set_option_string(ctx, "vo", "gpu");
     mpv_set_option_string(ctx, "gpu-context", "d3d11");
     mpv_set_option_string(ctx, "gpu-api", "d3d11");
@@ -114,8 +115,10 @@ void LogDisplayInfo() {
     dd.cb = sizeof(dd);
 
     for (DWORD i = 0; EnumDisplayDevicesW(nullptr, i, &dd, 0); i++) {
-        LOG_INFO << "显示器[" << i << "]: " << dd.DeviceName
-                 << " = " << dd.DeviceString
+        std::wstring devName(dd.DeviceName);
+        std::wstring devStr(dd.DeviceString);
+        LOG_INFO << "显示器[" << i << "]: " << devName
+                 << " = " << devStr
                  << (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE ? " [主]" : "")
                  << (dd.StateFlags & DISPLAY_DEVICE_ATTACHED_TO_DESKTOP ? "" : " [未连接]");
 
