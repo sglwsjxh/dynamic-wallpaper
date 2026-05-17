@@ -3,6 +3,7 @@
 #include "path.h"
 #include <filesystem>
 #include <iostream>
+#include <dxgi.h>
 
 namespace media {
 
@@ -14,7 +15,6 @@ void ConfigureLowOverhead(mpv_handle* ctx) {
     mpv_set_option_string(ctx, "audio", "no");
     mpv_set_option_string(ctx, "ao", "null");
     mpv_set_option_string(ctx, "hwdec", "d3d11va");
-    mpv_set_option_string(ctx, "d3d11-adapter", "NVIDIA GeForce RTX 5070 Laptop GPU");
     mpv_set_option_string(ctx, "vo", "gpu");
     mpv_set_option_string(ctx, "gpu-context", "d3d11");
     mpv_set_option_string(ctx, "gpu-api", "d3d11");
@@ -28,6 +28,7 @@ void ConfigureLowOverhead(mpv_handle* ctx) {
     mpv_set_option_string(ctx, "video-sync", "display-vdrop");
     mpv_set_option_string(ctx, "loop", "inf");
     mpv_set_option_string(ctx, "panscan", "1.0");
+    mpv_set_option_string(ctx, "d3d11-output-format", "bgra8");
 }
 
 void SetOutputWindow(mpv_handle* ctx, HWND hwnd) {
@@ -107,6 +108,51 @@ void LogPlayerInfo(mpv_handle* ctx) {
     if (mpv_get_property(ctx, "hwdec-interop", MPV_FORMAT_STRING, &hwdec_int) >= 0) {
         LOG_INFO << "mpv hwdec-interop: " << (hwdec_int ? hwdec_int : "(null)");
         mpv_free(hwdec_int);
+    }
+}
+
+void AutoConfigureGPU(mpv_handle* ctx, int screenW, int screenH) {
+    bool hasDedicated = false;
+
+    IDXGIFactory1* factory = nullptr;
+    HRESULT hr = CreateDXGIFactory1(IID_IDXGIFactory1, (void**)&factory);
+    if (SUCCEEDED(hr) && factory) {
+        IDXGIAdapter1* adapter = nullptr;
+        for (UINT i = 0; factory->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND; i++) {
+            DXGI_ADAPTER_DESC1 desc;
+            if (SUCCEEDED(adapter->GetDesc1(&desc))) {
+                std::wstring descStr(desc.Description);
+                LOG_INFO << "检测到 GPU[" << i << "]: " << descStr;
+
+                if (!hasDedicated &&
+                    (descStr.find(L"NVIDIA") != std::wstring::npos ||
+                     descStr.find(L"AMD") != std::wstring::npos ||
+                     descStr.find(L"Radeon") != std::wstring::npos)) {
+                    hasDedicated = true;
+                    char narrowName[256] = {};
+                    WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1,
+                                       narrowName, sizeof(narrowName), nullptr, nullptr);
+                    mpv_set_option_string(ctx, "d3d11-adapter", narrowName);
+                    LOG_INFO << "使用独显渲染: " << narrowName;
+                }
+            }
+            adapter->Release();
+        }
+        factory->Release();
+    }
+
+    if (!hasDedicated) {
+        LOG_INFO << "仅检测到集成显卡，启用集显优化";
+        mpv_set_option_string(ctx, "d3d11va-zero-copy", "yes");
+        mpv_set_option_string(ctx, "correct-downscaling", "no");
+        mpv_set_option_string(ctx, "linear-downscaling", "no");
+    }
+
+    if (screenW > 0 && screenH > 0) {
+        char vf[64];
+        snprintf(vf, sizeof(vf), "scale=%d:%d", screenW, screenH);
+        mpv_set_option_string(ctx, "vf", vf);
+        LOG_INFO << "视频缩放至: " << screenW << "x" << screenH;
     }
 }
 

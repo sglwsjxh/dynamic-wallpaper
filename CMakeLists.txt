@@ -39,6 +39,7 @@ target_link_libraries(wallpaper PRIVATE
     shcore
     dwmapi
     ole32
+    dxgi
     "-Wl,-Bstatic"
     winpthread
     "-Wl,-Bdynamic"

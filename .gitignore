@@ -2,9 +2,8 @@
 build/
 dist/
 release/
-
-# executable
 *.exe
+*.zip
 
 # video
 *.mp4

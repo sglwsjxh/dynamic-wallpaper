@@ -13,4 +13,5 @@ namespace media {
 
     void LogPlayerInfo(mpv_handle* ctx);
     void LogDisplayInfo();
+    void AutoConfigureGPU(mpv_handle* ctx, int screenW, int screenH);
 }

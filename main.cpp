@@ -26,6 +26,12 @@ int main() {
     }
 
     media::ConfigureLowOverhead(ctx);
+
+    DEVMODE dm{};
+    dm.dmSize = sizeof(dm);
+    EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &dm);
+    media::AutoConfigureGPU(ctx, dm.dmPelsWidth, dm.dmPelsHeight);
+
     media::SetOutputWindow(ctx, hwnd);
     SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(ctx));
 
