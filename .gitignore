@@ -11,9 +11,17 @@ release/
 # IDE
 .vscode/
 .idea/
-AGENTS.md
 
 # logs
 logs/
 logs/*.log
 .bak
+
+# tmp
+tmp/
+temp/
+test/
+tests/
+test*
+*.tmp
+*.bak
