@@ -15,7 +15,10 @@ release/
 # logs
 logs/
 logs/*.log
-.bak
+
+# config
+config/
+config.json
 
 # tmp
 tmp/
