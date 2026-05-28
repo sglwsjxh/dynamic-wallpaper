@@ -1,6 +1,7 @@
 #include <windows.h>
 
 #include "logs/log.h"
+#include "config/config.h"
 #include "process/process.h"
 #include "startup/startup.h"
 #include "wallpaper/window.h"
@@ -10,8 +11,20 @@ int main() {
     logm::Init();
     LOG_INFO << "Dynamic Wallpaper 启动";
 
+    auto cfg = LoadConfig();
+
+    if (!cfg.enabled) {
+        LOG_INFO << "动态壁纸已禁用（enabled=false），退出";
+        if (!cfg.auto_start) startup::RemoveTask();
+        return 0;
+    }
+
+    if (cfg.auto_start)
+        startup::EnsureTask();
+    else
+        startup::RemoveTask();
+
     proc::CloseOldInstances();
-    startup::EnsureTask();
 
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
@@ -41,8 +54,8 @@ int main() {
         return 1;
     }
 
-    if (!media::LoadBackgroundVideo(ctx))
-        LOG_WARN << "background.mp4 未找到，壁纸未加载";
+    if (!media::LoadBackgroundVideo(ctx, cfg.background_path))
+        LOG_WARN << "视频未找到或加载失败: " << cfg.background_path;
 
     media::VerifyHwdec(ctx);
     media::LogDisplayInfo();

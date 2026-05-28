@@ -40,15 +40,22 @@ bool InitPlayer(mpv_handle* ctx) {
     return mpv_initialize(ctx) >= 0;
 }
 
-bool LoadBackgroundVideo(mpv_handle* ctx) {
-    const auto pathUtf8 = (std::filesystem::path(path::GetExeDir()) / "background.mp4").u8string();
+bool LoadBackgroundVideo(mpv_handle* ctx, const std::string& videoPath) {
+    std::string fullPath;
 
-    const std::string path(
-        reinterpret_cast<const char*>(pathUtf8.data()),
-        pathUtf8.size()
-    );
+    // 检测是否为 Windows 绝对路径（如 C:\... 或 \\...）
+    if ((videoPath.size() > 1 && videoPath[1] == ':') ||
+        (!videoPath.empty() && (videoPath[0] == '/' || videoPath[0] == '\\'))) {
+        fullPath = videoPath;
+    } else {
+        // 相对路径，基于 exe 目录拼接
+        auto exeDir = path::GetExeDir();
+        auto pathObj = std::filesystem::path(exeDir) / videoPath;
+        auto pathUtf8 = pathObj.u8string();
+        fullPath.assign(reinterpret_cast<const char*>(pathUtf8.data()), pathUtf8.size());
+    }
 
-    const char* args[] = { "loadfile", path.c_str(), nullptr };
+    const char* args[] = { "loadfile", fullPath.c_str(), nullptr };
     return mpv_command(ctx, args) >= 0;
 }
 

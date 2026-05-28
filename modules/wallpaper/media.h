@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include <string>
 #include <mpv/client.h>
 
 namespace media {
@@ -7,7 +8,7 @@ namespace media {
     void ConfigureLowOverhead(mpv_handle* ctx);
     void SetOutputWindow(mpv_handle* ctx, HWND hwnd);
     bool InitPlayer(mpv_handle* ctx);
-    bool LoadBackgroundVideo(mpv_handle* ctx);
+    bool LoadBackgroundVideo(mpv_handle* ctx, const std::string& videoPath);
     void VerifyHwdec(mpv_handle* ctx);
     void DestroyPlayer(mpv_handle* ctx);
 

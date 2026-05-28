@@ -8,6 +8,7 @@ endif()
 
 add_executable(wallpaper WIN32
     main.cpp
+    modules/config/config.cpp
     modules/logs/log.cpp
     modules/path/path.cpp
     modules/process/process.cpp

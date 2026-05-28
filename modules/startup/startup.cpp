@@ -1,4 +1,5 @@
 #include "startup/startup.h"
+#include "logs/log.h"
 #include "path/path.h"
 #include "process/process.h"
 #include <winreg.h>
@@ -30,6 +31,12 @@ void EnsureTask() {
     DWORD exitCode = 1;
     if (proc::RunHiddenAndWait(taskCmd, &exitCode) && exitCode == 0)
         RemoveLegacyRegistryEntry();
+}
+
+void RemoveTask() {
+    std::wstring taskCmd = L"schtasks.exe /Delete /TN \"DynamicWallpaper\" /F";
+    proc::RunHiddenAndWait(taskCmd, nullptr);
+    LOG_INFO << "开机自启任务已移除";
 }
 
 }
