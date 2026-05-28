@@ -17,8 +17,8 @@ logs/
 logs/*.log
 
 # config
-config/
-config.json
+/config/
+/config.json
 
 # tmp
 tmp/
