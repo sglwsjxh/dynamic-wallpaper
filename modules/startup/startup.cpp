@@ -1,6 +1,6 @@
-#include "startup.h"
-#include "path.h"
-#include "process.h"
+#include "startup/startup.h"
+#include "path/path.h"
+#include "process/process.h"
 #include <winreg.h>
 
 namespace {

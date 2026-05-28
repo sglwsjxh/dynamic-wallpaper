@@ -8,15 +8,18 @@ endif()
 
 add_executable(wallpaper WIN32
     main.cpp
-    modules/log.cpp
-    modules/path.cpp
-    modules/process.cpp
-    modules/startup.cpp
-    modules/window.cpp
-    modules/media.cpp
+    modules/logs/log.cpp
+    modules/path/path.cpp
+    modules/process/process.cpp
+    modules/startup/startup.cpp
+    modules/wallpaper/window.cpp
+    modules/wallpaper/media.cpp
 )
 
-target_include_directories(wallpaper PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(wallpaper PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/modules
+)
 
 target_compile_features(wallpaper PRIVATE cxx_std_17)
 

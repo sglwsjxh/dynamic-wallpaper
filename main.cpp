@@ -1,10 +1,10 @@
 #include <windows.h>
 
-#include "modules/log.h"
-#include "modules/process.h"
-#include "modules/startup.h"
-#include "modules/window.h"
-#include "modules/media.h"
+#include "logs/log.h"
+#include "process/process.h"
+#include "startup/startup.h"
+#include "wallpaper/window.h"
+#include "wallpaper/media.h"
 
 int main() {
     logm::Init();

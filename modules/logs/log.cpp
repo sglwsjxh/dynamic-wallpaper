@@ -1,5 +1,5 @@
-#include "log.h"
-#include "path.h"
+#include "logs/log.h"
+#include "path/path.h"
 #include <cstdio>
 #include <ctime>
 #include <string>

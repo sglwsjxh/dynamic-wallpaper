@@ -1,6 +1,6 @@
-#include "media.h"
-#include "log.h"
-#include "path.h"
+#include "wallpaper/media.h"
+#include "logs/log.h"
+#include "path/path.h"
 #include <filesystem>
 #include <iostream>
 #include <dxgi.h>

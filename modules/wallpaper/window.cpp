@@ -1,6 +1,6 @@
-#include "window.h"
-#include "log.h"
-#include "media.h"
+#include "wallpaper/window.h"
+#include "logs/log.h"
+#include "wallpaper/media.h"
 
 namespace win {
 

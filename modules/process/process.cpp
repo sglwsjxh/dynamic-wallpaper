@@ -1,5 +1,5 @@
-#include "process.h"
-#include "path.h"
+#include "process/process.h"
+#include "path/path.h"
 #include <tlhelp32.h>
 
 namespace {
