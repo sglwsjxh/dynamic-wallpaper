@@ -5,6 +5,17 @@
 #include <iostream>
 #include <dxgi.h>
 
+namespace {
+
+bool SetOption(mpv_handle* ctx, const char* key, const char* value) {
+    int ret = mpv_set_option_string(ctx, key, value);
+    if (ret < 0)
+        LOG_WARN << "mpv option 设置失败: " << key << "=" << value << " ret=" << ret;
+    return ret >= 0;
+}
+
+}
+
 namespace media {
 
 mpv_handle* CreatePlayer() {
@@ -12,23 +23,23 @@ mpv_handle* CreatePlayer() {
 }
 
 void ConfigureLowOverhead(mpv_handle* ctx) {
-    mpv_set_option_string(ctx, "audio", "no");
-    mpv_set_option_string(ctx, "ao", "null");
-    mpv_set_option_string(ctx, "hwdec", "d3d11va");
-    mpv_set_option_string(ctx, "vo", "gpu");
-    mpv_set_option_string(ctx, "gpu-context", "d3d11");
-    mpv_set_option_string(ctx, "gpu-api", "d3d11");
-    mpv_set_option_string(ctx, "scale", "bilinear");
-    mpv_set_option_string(ctx, "dscale", "bilinear");
-    mpv_set_option_string(ctx, "cscale", "bilinear");
-    mpv_set_option_string(ctx, "interpolation", "no");
-    mpv_set_option_string(ctx, "dither", "no");
-    mpv_set_option_string(ctx, "gpu-shader-cache-size", "0");
-    mpv_set_option_string(ctx, "demuxer-max-bytes", "8MiB");
-    mpv_set_option_string(ctx, "video-sync", "display-vdrop");
-    mpv_set_option_string(ctx, "loop", "inf");
-    mpv_set_option_string(ctx, "panscan", "1.0");
-    mpv_set_option_string(ctx, "d3d11-output-format", "bgra8");
+    SetOption(ctx, "audio", "no");
+    SetOption(ctx, "ao", "null");
+    SetOption(ctx, "hwdec", "d3d11va");
+    SetOption(ctx, "vo", "gpu");
+    SetOption(ctx, "gpu-context", "d3d11");
+    SetOption(ctx, "gpu-api", "d3d11");
+    SetOption(ctx, "scale", "bilinear");
+    SetOption(ctx, "dscale", "bilinear");
+    SetOption(ctx, "cscale", "bilinear");
+    SetOption(ctx, "interpolation", "no");
+    SetOption(ctx, "dither", "no");
+    SetOption(ctx, "gpu-shader-cache-size", "0");
+    SetOption(ctx, "demuxer-max-bytes", "8MiB");
+    SetOption(ctx, "video-sync", "display-vdrop");
+    SetOption(ctx, "loop", "inf");
+    SetOption(ctx, "panscan", "1.0");
+    SetOption(ctx, "d3d11-output-format", "bgra8");
 }
 
 void SetOutputWindow(mpv_handle* ctx, HWND hwnd) {
@@ -53,6 +64,11 @@ bool LoadBackgroundVideo(mpv_handle* ctx, const std::string& videoPath) {
         auto pathObj = std::filesystem::path(exeDir) / videoPath;
         auto pathUtf8 = pathObj.u8string();
         fullPath.assign(reinterpret_cast<const char*>(pathUtf8.data()), pathUtf8.size());
+    }
+
+    if (!std::filesystem::exists(std::filesystem::path(fullPath))) {
+        LOG_ERR << "视频文件不存在: " << fullPath;
+        return false;
     }
 
     const char* args[] = { "loadfile", fullPath.c_str(), nullptr };
@@ -139,7 +155,7 @@ void AutoConfigureGPU(mpv_handle* ctx, int screenW, int screenH) {
                     char narrowName[256] = {};
                     WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1,
                                        narrowName, sizeof(narrowName), nullptr, nullptr);
-                    mpv_set_option_string(ctx, "d3d11-adapter", narrowName);
+                    SetOption(ctx, "d3d11-adapter", narrowName);
                     LOG_INFO << "使用独显渲染: " << narrowName;
                 }
             }
@@ -150,15 +166,15 @@ void AutoConfigureGPU(mpv_handle* ctx, int screenW, int screenH) {
 
     if (!hasDedicated) {
         LOG_INFO << "仅检测到集成显卡，启用集显优化";
-        mpv_set_option_string(ctx, "d3d11va-zero-copy", "yes");
-        mpv_set_option_string(ctx, "correct-downscaling", "no");
-        mpv_set_option_string(ctx, "linear-downscaling", "no");
+        SetOption(ctx, "d3d11va-zero-copy", "yes");
+        SetOption(ctx, "correct-downscaling", "no");
+        SetOption(ctx, "linear-downscaling", "no");
     }
 
     if (screenW > 0 && screenH > 0) {
         char vf[64];
         snprintf(vf, sizeof(vf), "scale=%d:%d", screenW, screenH);
-        mpv_set_option_string(ctx, "vf", vf);
+        SetOption(ctx, "vf", vf);
         LOG_INFO << "视频缩放至: " << screenW << "x" << screenH;
     }
 }

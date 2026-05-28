@@ -1,5 +1,4 @@
 #include <windows.h>
-#include <cstdlib>
 
 #include "logs/log.h"
 #include "config/config.h"
@@ -7,13 +6,7 @@
 #include "startup/startup.h"
 #include "wallpaper/wallpaper.h"
 
-static void OnExit() {
-    LOG_INFO << "程序退出 (atexit)";
-}
-
 int main() {
-    std::atexit(OnExit);
-
     logm::Init();
     LOG_INFO << "Dynamic Wallpaper 启动";
 

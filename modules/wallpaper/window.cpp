@@ -9,7 +9,11 @@ HWND CreateWallpaperWindow(HINSTANCE hInstance) {
                       hInstance, nullptr, nullptr,
                       (HBRUSH)GetStockObject(BLACK_BRUSH), nullptr,
                       L"LowMemWallpaper", nullptr };
-    RegisterClassEx(&wc);
+    ATOM atom = RegisterClassEx(&wc);
+    if (!atom && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
+        LOG_ERR << "CreateWallpaperWindow: RegisterClassEx 失败, err=" << GetLastError();
+        return nullptr;
+    }
 
     return CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, L"LowMemWallpaper", L"",
                           WS_POPUP | WS_VISIBLE, 0, 0, 0, 0,
@@ -24,12 +28,25 @@ static HWND FindDesktopShellView() {
     return FindWindowEx(hProgman, nullptr, L"SHELLDLL_DefView", nullptr);
 }
 
-// 诊断发现 (Win11 24H2):
-//   Progman (visible)
-//     ├── SHELLDLL_DefView (图标层)
-//     └── WorkerW           (壁纸层！Progman 的直接子窗口，可见且全屏)
-//   0x052C 在此系统上无效 (不产生新 WorkerW)
-//   15 个顶层 WorkerW 均为小窗口且不可见 (136x39)
+static HWND FindWallpaperHost(HWND hProgman) {
+    int screenW = GetSystemMetrics(SM_CXSCREEN);
+    int screenH = GetSystemMetrics(SM_CYSCREEN);
+    long long screenArea = static_cast<long long>(screenW) * screenH;
+
+    HWND hChild = nullptr;
+    while ((hChild = FindWindowEx(hProgman, hChild, L"WorkerW", nullptr)) != nullptr) {
+        if (!IsWindowVisible(hChild)) continue;
+
+        RECT rc;
+        if (!GetWindowRect(hChild, &rc)) continue;
+
+        long long area = static_cast<long long>(rc.right - rc.left) * (rc.bottom - rc.top);
+        if (area >= screenArea * 80 / 100)
+            return hChild;
+    }
+    return nullptr;
+}
+
 bool EmbedDesktop(HWND hwnd) {
     HWND hProgman = FindWindow(L"Progman", L"Program Manager");
     if (!hProgman) {
@@ -37,11 +54,11 @@ bool EmbedDesktop(HWND hwnd) {
         return false;
     }
 
-    // Plan A: 嵌入 Progman 的子 WorkerW（诊断确认存在且可见）
-    HWND hChildWorker = FindWindowEx(hProgman, nullptr, L"WorkerW", nullptr);
-    HWND hTarget = hChildWorker ? hChildWorker : hProgman;
+    HWND hWorker = FindWallpaperHost(hProgman);
+    HWND hTarget = hWorker ? hWorker : hProgman;
+    bool hasWorkerW = (hWorker != nullptr);
 
-    LOG_INFO << "EmbedDesktop: 嵌入目标=" << (hChildWorker ? L"Progman的子WorkerW" : L"Progman(直连)");
+    LOG_INFO << "EmbedDesktop: 嵌入目标=" << (hasWorkerW ? L"WorkerW" : L"Progman");
 
     // 转为 WS_CHILD 并嵌入
     SetWindowLongPtr(hwnd, GWL_STYLE,
@@ -53,16 +70,23 @@ bool EmbedDesktop(HWND hwnd) {
         return false;
     }
 
-    // 放在 SHELLDLL_DefView 后面（图标层之后）
-    HWND hInsertAfter = HWND_BOTTOM;
-    HWND hShellView = FindDesktopShellView();
-    if (hShellView)
-        hInsertAfter = hShellView;
-
-    if (!SetWindowPos(hwnd, hInsertAfter, 0, 0, 0, 0,
-                      SWP_NOSIZE | SWP_NOACTIVATE)) {
-        LOG_ERR << "EmbedDesktop: SetWindowPos(Z-order) 失败, err=" << GetLastError();
-        return false;
+    // Z-order：确保壁纸在图标层下方
+    // 嵌入 WorkerW 时：WorkerW 已在图标层下方，用 HWND_BOTTOM 即可（同 parent 安全）
+    // 直连 Progman 时：放在 SHELLDLL_DefView 后面（二者是 Progman 的 sibling）
+    if (hasWorkerW) {
+        if (!SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, 0, 0,
+                          SWP_NOSIZE | SWP_NOACTIVATE)) {
+            LOG_ERR << "EmbedDesktop: SetWindowPos(HWND_BOTTOM) 失败, err=" << GetLastError();
+            return false;
+        }
+    } else {
+        HWND hShellView = FindDesktopShellView();
+        HWND hInsertAfter = hShellView ? hShellView : HWND_BOTTOM;
+        if (!SetWindowPos(hwnd, hInsertAfter, 0, 0, 0, 0,
+                          SWP_NOSIZE | SWP_NOACTIVATE)) {
+            LOG_ERR << "EmbedDesktop: SetWindowPos(Z-order) 失败, err=" << GetLastError();
+            return false;
+        }
     }
 
     LOG_INFO << "EmbedDesktop: 嵌入成功"
@@ -71,23 +95,34 @@ bool EmbedDesktop(HWND hwnd) {
 }
 
 void SetFullscreen(HWND hwnd) {
-    DEVMODE dm{};
-    dm.dmSize = sizeof(dm);
-    EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &dm);
-    SetWindowPos(hwnd, nullptr, 0, 0, dm.dmPelsWidth, dm.dmPelsHeight,
+    HWND hParent = GetParent(hwnd);
+    if (!hParent) {
+        DEVMODE dm{};
+        dm.dmSize = sizeof(dm);
+        EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &dm);
+        SetWindowPos(hwnd, nullptr, 0, 0, dm.dmPelsWidth, dm.dmPelsHeight,
+                     SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE);
+        return;
+    }
+
+    RECT rc;
+    GetClientRect(hParent, &rc);
+    SetWindowPos(hwnd, nullptr, 0, 0, rc.right, rc.bottom,
                  SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
+#ifdef _DEBUG
         case WM_RBUTTONDOWN:
         case WM_RBUTTONDBLCLK:
         case WM_CONTEXTMENU: {
-            // 安全网：若不小心在图标层前面，把右键转发给桌面
             HWND hShellView = FindDesktopShellView();
             if (hShellView) PostMessage(hShellView, msg, wParam, lParam);
+            LOG_INFO << "WndProc: 转发右键消息到桌面";
             return 0;
         }
+#endif
 
         case WM_DISPLAYCHANGE: {
             int newW = LOWORD(lParam), newH = HIWORD(lParam);
@@ -99,12 +134,8 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             break;
         }
 
-        case WM_SIZE: {
-            int w = LOWORD(lParam), h = HIWORD(lParam);
-            if (w > 0 && h > 0)
-                SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, w, h, SWP_NOACTIVATE);
+        case WM_SIZE:
             break;
-        }
 
         case WM_POWERBROADCAST:
             if (wParam == PBT_APMRESUMEAUTOMATIC) {

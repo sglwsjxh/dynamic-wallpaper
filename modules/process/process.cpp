@@ -5,8 +5,7 @@
 namespace {
 
 std::wstring GetProcessImagePath(DWORD pid) {
-    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | SYNCHRONIZE,
-                                 FALSE, pid);
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
     if (!process) return L"";
 
     std::wstring path(MAX_PATH, L'\0');

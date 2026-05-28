@@ -24,7 +24,7 @@ Config LoadConfig() {
         Config cfg;
         cfg.auto_startup = j.value("auto_startup", true);
 
-        auto& dw = j["dynamic_wallpaper"];
+        auto dw = j.value("dynamic_wallpaper", nlohmann::json::object());
         cfg.wallpaper_enabled = dw.value("enabled", true);
         cfg.background_path   = dw.value("background_path", "background.mp4");
 
