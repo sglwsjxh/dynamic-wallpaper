@@ -55,9 +55,24 @@ target_link_options(wallpaper PRIVATE
     -static-libstdc++
 )
 
+# 复制 mpv 运行时库到输出目录
 add_custom_command(TARGET wallpaper POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mpv/bin/libmpv-2.dll"
             "$<TARGET_FILE_DIR:wallpaper>/libmpv-2.dll"
+    VERBATIM
+)
+
+# 复制配置文件到输出目录（优先 config.json，不存在则用 example）
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/config.json")
+    set(CONFIG_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/config.json")
+else()
+    set(CONFIG_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/config.example.json")
+endif()
+
+add_custom_command(TARGET wallpaper POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${CONFIG_SOURCE}"
+            "$<TARGET_FILE_DIR:wallpaper>/config.json"
     VERBATIM
 )
