@@ -15,20 +15,35 @@ cmake -S . -B build -G "MinGW Makefiles"
 cmake --build build --config Release
 ```
 
+> You can also run `.\build_and_run.ps1` for a one-click build and launch
+
 ## Usage
 
-1. When running the program, make sure `wallpaper.exe`, `libmpv-2.dll`, and `background.mp4` are in the same directory
-2. On first launch, the program will add itself to startup automatically
-3. Existing users do not need to clear the old registry startup entry, the program will update it automatically
+1. Run `wallpaper.exe` — make sure `libmpv-2.dll` and `config.json` are in the same directory
+2. Edit `background_path` in `config.json` to point to your video file (default: `background.mp4`)
+3. Set `wallpaper_enabled` to `false` to disable the wallpaper temporarily; `auto_startup` controls autostart on login
 
-## Configuration
+### Configuration
 
-The video file is read from `background.mp4` in the same directory by default. You can replace it with your own video file.
+```json
+{
+    "auto_startup": true,
+    "dynamic_wallpaper": {
+        "enabled": true,
+        "background_path": "background.mp4"
+    }
+}
+```
 
-## License
-
-MIT License
+- `auto_startup`: Whether to autostart with Windows
+- `enabled`: Whether to show the wallpaper (set `false` to only handle autostart)
+- `background_path`: Video file path (relative to exe directory, or absolute path)
 
 ## Acknowledgements
 
 - [mpv](https://mpv.io/) — Video playback engine, used under LGPLv2.1+
+- [nlohmann/json](https://github.com/nlohmann/json) — JSON parsing library, MIT License
+
+## License
+
+MIT License
