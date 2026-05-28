@@ -33,6 +33,7 @@ target_compile_definitions(wallpaper PRIVATE UNICODE _UNICODE)
 target_compile_options(wallpaper PRIVATE -Wall)
 
 target_include_directories(wallpaper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mpv/include")
+target_include_directories(wallpaper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/include")
 target_link_directories(wallpaper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mpv/lib")
 
 target_link_libraries(wallpaper PRIVATE

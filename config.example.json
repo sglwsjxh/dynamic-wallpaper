@@ -1,0 +1,7 @@
+{
+    "dynamic_wallpaper": {
+        "enabled": true,
+        "background_path": "background.mp4",
+        "auto_start": true
+    }
+}
