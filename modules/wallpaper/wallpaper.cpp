@@ -15,7 +15,12 @@ bool Init(Context& ctx, const Config& cfg) {
         return false;
     }
 
-    win::EmbedDesktop(ctx.hwnd);
+    if (!win::EmbedDesktop(ctx.hwnd)) {
+        LOG_ERR << "壁纸嵌入桌面失败";
+        DestroyWindow(ctx.hwnd);
+        ctx.hwnd = nullptr;
+        return false;
+    }
     win::SetFullscreen(ctx.hwnd);
 
     ctx.mpv = media::CreatePlayer();

@@ -16,34 +16,78 @@ HWND CreateWallpaperWindow(HINSTANCE hInstance) {
                           nullptr, nullptr, hInstance, nullptr);
 }
 
-void EmbedDesktop(HWND hwnd) {
+// SHELLDLL_DefView handles desktop icon clicks and right-click context menus.
+// Lives as a direct child of Progman (Win11) or inside a WorkerW (older Win10).
+static HWND FindDesktopShellView() {
     HWND hProgman = FindWindow(L"Progman", L"Program Manager");
-    SendMessage(hProgman, 0x052C, 0, 0);
+    if (!hProgman) return nullptr;
+    return FindWindowEx(hProgman, nullptr, L"SHELLDLL_DefView", nullptr);
+}
 
-    HWND hWorkerW = nullptr;
-    auto enumProc = [](HWND hwnd, LPARAM lParam) -> BOOL {
-        if (FindWindowEx(hwnd, nullptr, L"SHELLDLL_DefView", nullptr)) {
-            *(HWND*)lParam = FindWindowEx(nullptr, hwnd, L"WorkerW", nullptr);
-            return FALSE;
-        }
-        return TRUE;
-    };
-    EnumWindows(enumProc, reinterpret_cast<LPARAM>(&hWorkerW));
+// 诊断发现 (Win11 24H2):
+//   Progman (visible)
+//     ├── SHELLDLL_DefView (图标层)
+//     └── WorkerW           (壁纸层！Progman 的直接子窗口，可见且全屏)
+//   0x052C 在此系统上无效 (不产生新 WorkerW)
+//   15 个顶层 WorkerW 均为小窗口且不可见 (136x39)
+bool EmbedDesktop(HWND hwnd) {
+    HWND hProgman = FindWindow(L"Progman", L"Program Manager");
+    if (!hProgman) {
+        LOG_ERR << "EmbedDesktop: 找不到 Progman 窗口";
+        return false;
+    }
 
-    if (hWorkerW) SetParent(hwnd, hWorkerW);
+    // Plan A: 嵌入 Progman 的子 WorkerW（诊断确认存在且可见）
+    HWND hChildWorker = FindWindowEx(hProgman, nullptr, L"WorkerW", nullptr);
+    HWND hTarget = hChildWorker ? hChildWorker : hProgman;
+
+    LOG_INFO << "EmbedDesktop: 嵌入目标=" << (hChildWorker ? L"Progman的子WorkerW" : L"Progman(直连)");
+
+    // 转为 WS_CHILD 并嵌入
+    SetWindowLongPtr(hwnd, GWL_STYLE,
+        (GetWindowLongPtr(hwnd, GWL_STYLE) & ~WS_POPUP) | WS_CHILD | WS_VISIBLE);
+    SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE);
+
+    if (!SetParent(hwnd, hTarget)) {
+        LOG_ERR << "EmbedDesktop: SetParent 失败, err=" << GetLastError();
+        return false;
+    }
+
+    // 放在 SHELLDLL_DefView 后面（图标层之后）
+    HWND hInsertAfter = HWND_BOTTOM;
+    HWND hShellView = FindDesktopShellView();
+    if (hShellView)
+        hInsertAfter = hShellView;
+
+    if (!SetWindowPos(hwnd, hInsertAfter, 0, 0, 0, 0,
+                      SWP_NOSIZE | SWP_NOACTIVATE)) {
+        LOG_ERR << "EmbedDesktop: SetWindowPos(Z-order) 失败, err=" << GetLastError();
+        return false;
+    }
+
+    LOG_INFO << "EmbedDesktop: 嵌入成功"
+             << " (hwnd=" << hwnd << ", target=" << hTarget << ")";
+    return true;
 }
 
 void SetFullscreen(HWND hwnd) {
     DEVMODE dm{};
     dm.dmSize = sizeof(dm);
     EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &dm);
-    SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, dm.dmPelsWidth, dm.dmPelsHeight, SWP_SHOWWINDOW);
+    SetWindowPos(hwnd, nullptr, 0, 0, dm.dmPelsWidth, dm.dmPelsHeight,
+                 SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
-        case WM_NCHITTEST:
-            return HTTRANSPARENT;
+        case WM_RBUTTONDOWN:
+        case WM_RBUTTONDBLCLK:
+        case WM_CONTEXTMENU: {
+            // 安全网：若不小心在图标层前面，把右键转发给桌面
+            HWND hShellView = FindDesktopShellView();
+            if (hShellView) PostMessage(hShellView, msg, wParam, lParam);
+            return 0;
+        }
 
         case WM_DISPLAYCHANGE: {
             int newW = LOWORD(lParam), newH = HIWORD(lParam);
@@ -58,13 +102,11 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
         case WM_SIZE: {
             int w = LOWORD(lParam), h = HIWORD(lParam);
             if (w > 0 && h > 0)
-                SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, w, h, SWP_NOZORDER);
+                SetWindowPos(hwnd, HWND_BOTTOM, 0, 0, w, h, SWP_NOACTIVATE);
             break;
         }
 
         case WM_POWERBROADCAST:
-            if (wParam == PBT_APMSUSPEND) {
-            }
             if (wParam == PBT_APMRESUMEAUTOMATIC) {
                 EmbedDesktop(hwnd);
                 SetFullscreen(hwnd);

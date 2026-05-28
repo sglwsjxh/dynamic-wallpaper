@@ -1,4 +1,5 @@
 #include <windows.h>
+#include <cstdlib>
 
 #include "logs/log.h"
 #include "config/config.h"
@@ -6,7 +7,13 @@
 #include "startup/startup.h"
 #include "wallpaper/wallpaper.h"
 
+static void OnExit() {
+    LOG_INFO << "程序退出 (atexit)";
+}
+
 int main() {
+    std::atexit(OnExit);
+
     logm::Init();
     LOG_INFO << "Dynamic Wallpaper 启动";
 
@@ -26,6 +33,8 @@ int main() {
         wpOk = wallpaper::Init(wpCtx, cfg);
         if (!wpOk)
             LOG_WARN << "壁纸模块初始化失败，跳过";
+    } else {
+        LOG_INFO << "壁纸功能已禁用，跳过";
     }
 
     if (wpOk) {
