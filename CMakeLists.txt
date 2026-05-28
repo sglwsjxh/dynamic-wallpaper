@@ -15,6 +15,7 @@ add_executable(wallpaper WIN32
     modules/startup/startup.cpp
     modules/wallpaper/window.cpp
     modules/wallpaper/media.cpp
+    modules/wallpaper/wallpaper.cpp
 )
 
 target_include_directories(wallpaper PRIVATE

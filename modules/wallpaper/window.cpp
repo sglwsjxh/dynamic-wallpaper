@@ -12,7 +12,7 @@ HWND CreateWallpaperWindow(HINSTANCE hInstance) {
     RegisterClassEx(&wc);
 
     return CreateWindowEx(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, L"LowMemWallpaper", L"",
-                          WS_CHILD | WS_VISIBLE, 0, 0, 0, 0,
+                          WS_POPUP | WS_VISIBLE, 0, 0, 0, 0,
                           nullptr, nullptr, hInstance, nullptr);
 }
 
