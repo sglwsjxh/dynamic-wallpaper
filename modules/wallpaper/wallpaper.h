@@ -18,7 +18,7 @@ struct Context {
 };
 
 bool Init(Context& ctx, const Config& cfg);
-bool Tick(Context& ctx);  // true=正常运行, false=请求退出
+void Tick(Context& ctx);
 void Shutdown(Context& ctx);
 
 } // namespace wallpaper

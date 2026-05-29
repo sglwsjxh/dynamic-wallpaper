@@ -149,9 +149,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
 #endif
 
-        case WM_NCHITTEST:
-            return HTTRANSPARENT;
-
         case WM_DISPLAYCHANGE: {
             int newW = LOWORD(lParam), newH = HIWORD(lParam);
             LOG_INFO << "WM_DISPLAYCHANGE: 分辨率变化 -> " << newW << "x" << newH;
