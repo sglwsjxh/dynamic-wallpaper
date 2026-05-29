@@ -6,7 +6,7 @@
 namespace media {
     mpv_handle* CreatePlayer();
     void ConfigureLowOverhead(mpv_handle* ctx);
-    void SetOutputWindow(mpv_handle* ctx, HWND hwnd);
+    bool SetOutputWindow(mpv_handle* ctx, HWND hwnd);
     bool InitPlayer(mpv_handle* ctx);
     bool LoadBackgroundVideo(mpv_handle* ctx, const std::string& videoPath);
     void VerifyHwdec(mpv_handle* ctx);

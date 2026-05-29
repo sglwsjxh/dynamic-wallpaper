@@ -32,21 +32,19 @@ int main() {
 
     if (wpOk) {
         MSG msg{};
-        bool running = true;
 
-        while (running) {
+        while (wpCtx.running) {
             while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
                 if (msg.message == WM_QUIT) {
-                    running = false;
+                    wpCtx.running = false;
                     break;
                 }
                 TranslateMessage(&msg);
                 DispatchMessage(&msg);
             }
-            if (!running) break;
+            if (!wpCtx.running) break;
 
-            if (!wallpaper::Tick(wpCtx))
-                running = false;
+            wallpaper::Tick(wpCtx);
             Sleep(8);
         }
 

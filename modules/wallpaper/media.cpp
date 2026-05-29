@@ -42,9 +42,14 @@ void ConfigureLowOverhead(mpv_handle* ctx) {
     SetOption(ctx, "d3d11-output-format", "bgra8");
 }
 
-void SetOutputWindow(mpv_handle* ctx, HWND hwnd) {
+bool SetOutputWindow(mpv_handle* ctx, HWND hwnd) {
     int64_t wid = reinterpret_cast<intptr_t>(hwnd);
-    mpv_set_option(ctx, "wid", MPV_FORMAT_INT64, &wid);
+    int ret = mpv_set_option(ctx, "wid", MPV_FORMAT_INT64, &wid);
+    if (ret < 0) {
+        LOG_ERR << "mpv wid 设置失败, hwnd=" << hwnd << " ret=" << ret;
+        return false;
+    }
+    return true;
 }
 
 bool InitPlayer(mpv_handle* ctx) {
