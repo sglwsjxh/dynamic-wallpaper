@@ -83,8 +83,10 @@ bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance) {
     ctx.next_recreate_tick = 0;
 
     if (!CreateWallpaperRuntime(ctx)) {
-        LOG_ERR << "壁纸运行时创建失败";
-        return false;
+        LOG_WARN << "壁纸运行时创建失败，进入重试状态";
+        ctx.need_recreate = true;
+        ctx.next_recreate_tick = GetTickCount() + 1000;
+        return true;
     }
 
     media::LogDisplayInfo();

@@ -6,6 +6,7 @@ namespace shell {
 struct Context {
     HWND hwnd = nullptr;
     HINSTANCE hInstance = nullptr;
+    bool shutting_down = false;
 
     bool explorer_recreated = false;
     bool display_changed = false;

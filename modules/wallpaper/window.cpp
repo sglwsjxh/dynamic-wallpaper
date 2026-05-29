@@ -147,9 +147,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
 #endif
 
-        case WM_SIZE:
-            break;
-
         case WM_DESTROY:
             LOG_INFO << "WndProc: 壁纸窗口被销毁, hwnd=" << hwnd;
             return 0;

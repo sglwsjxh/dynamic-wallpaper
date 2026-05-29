@@ -44,8 +44,12 @@ static LRESULT CALLBACK ShellWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
             return 0;
 
         case WM_DESTROY:
-            LOG_INFO << "Shell: 控制器窗口销毁，程序退出";
-            PostQuitMessage(0);
+            if (ctx && ctx->shutting_down) {
+                LOG_INFO << "Shell: 控制器窗口正常销毁";
+            } else {
+                LOG_INFO << "Shell: 控制器窗口意外销毁，程序退出";
+                PostQuitMessage(0);
+            }
             return 0;
     }
 
@@ -79,10 +83,13 @@ bool Init(Context& ctx, HINSTANCE hInstance) {
 }
 
 void Shutdown(Context& ctx) {
+    ctx.shutting_down = true;
+
     if (ctx.hwnd) {
         DestroyWindow(ctx.hwnd);
         ctx.hwnd = nullptr;
     }
+
     LOG_INFO << "Shell: 已关闭";
 }
 
