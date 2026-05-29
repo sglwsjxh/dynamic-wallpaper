@@ -11,6 +11,7 @@ add_executable(wallpaper WIN32
 
     modules/app/app.cpp
     modules/shell/shell_controller.cpp
+    modules/tray/tray.cpp
 
     modules/config/config.cpp
     modules/logs/log.cpp
@@ -46,6 +47,7 @@ target_link_directories(wallpaper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_par
 target_link_libraries(wallpaper PRIVATE
     mpv
     user32
+    shell32
     gdi32
     shcore
     dwmapi

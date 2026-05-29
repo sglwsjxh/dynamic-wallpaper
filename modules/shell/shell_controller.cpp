@@ -1,4 +1,5 @@
 #include "shell/shell_controller.h"
+#include "tray/tray.h"
 #include "logs/log.h"
 
 namespace shell {
@@ -19,6 +20,15 @@ static LRESULT CALLBACK ShellWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM 
         LOG_INFO << "Shell: TaskbarCreated — Explorer 重启";
         if (ctx)
             ctx->explorer_recreated = true;
+        return 0;
+    }
+
+    if (msg == tray::WM_TRAY) {
+        if (ctx) {
+            ctx->tray_message = true;
+            ctx->tray_wparam = wParam;
+            ctx->tray_lparam = lParam;
+        }
         return 0;
     }
 
