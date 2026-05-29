@@ -5,6 +5,7 @@
 #include <windowsx.h>
 #include <cwchar>
 #include <cstdint>
+#include <cstring>
 #include <vector>
 
 namespace tray {
@@ -97,7 +98,7 @@ static HICON CreateGeneratedIcon() {
     }
 
     auto* pixels = static_cast<uint32_t*>(bits);
-    memset(pixels, 0, (size_t)cx * cy * sizeof(uint32_t));
+    std::memset(pixels, 0, static_cast<size_t>(cx) * cy * sizeof(uint32_t));
 
     const int m = 2;
     const int cr = 6;
