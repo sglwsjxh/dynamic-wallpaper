@@ -15,6 +15,10 @@ struct Context {
 
     int display_width = 0;
     int display_height = 0;
+
+    bool tray_message = false;
+    WPARAM tray_wparam = 0;
+    LPARAM tray_lparam = 0;
 };
 
 bool Init(Context& ctx, HINSTANCE hInstance);

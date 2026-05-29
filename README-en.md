@@ -22,6 +22,7 @@ cmake --build build --config Release
 1. Run `wallpaper.exe` — make sure `libmpv-2.dll` and `config.json` are in the same directory
 2. Edit `background_path` in `config.json` to point to your video file (default: `background.mp4`)
 3. Set `wallpaper_enabled` to `false` to disable the wallpaper temporarily; `auto_startup` controls autostart on login
+4. The app shows a system tray icon after startup
 
 ### Configuration
 
@@ -36,8 +37,8 @@ cmake --build build --config Release
 ```
 
 - `auto_startup`: Whether to autostart with Windows
-- `enabled`: Whether to show the wallpaper (set `false` to only handle autostart)
-- `background_path`: Video file path (relative to exe directory, or absolute path)
+- `enabled`: Whether to show the wallpaper
+- `background_path`: Video file path
 
 ## Acknowledgements
 

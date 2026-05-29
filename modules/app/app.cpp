@@ -12,6 +12,9 @@ bool Init(Context& ctx, const Config& cfg) {
         return false;
     }
 
+    if (!tray::Init(ctx.tray, ctx.shell.hwnd))
+        LOG_WARN << "App: 托盘图标初始化失败，继续运行";
+
     if (cfg.wallpaper_enabled) {
         if (!wallpaper::Init(ctx.wallpaper, cfg, ctx.hInstance))
             LOG_WARN << "App: 壁纸模块初始化失败，继续运行 shell 主控";
@@ -43,6 +46,7 @@ void Run(Context& ctx) {
 
         if (ctx.shell.explorer_recreated) {
             LOG_INFO << "App: Explorer 重建，通知各模块";
+            tray::OnExplorerRestarted(ctx.tray);
             wallpaper::OnExplorerRestarted(ctx.wallpaper);
             ctx.shell.explorer_recreated = false;
         }
@@ -66,12 +70,35 @@ void Run(Context& ctx) {
             ctx.shell.power_suspended = false;
         }
 
+        if (ctx.shell.tray_message) {
+            tray::HandleMessage(ctx.tray, ctx.shell.tray_wparam, ctx.shell.tray_lparam);
+            ctx.shell.tray_message = false;
+        }
+
+        switch (tray::ConsumeCommand(ctx.tray)) {
+            case tray::Command::RecreateWallpaper:
+                LOG_INFO << "App: 托盘命令 -> 重建壁纸";
+                wallpaper::OnExplorerRestarted(ctx.wallpaper);
+                break;
+
+            case tray::Command::Exit:
+                LOG_INFO << "App: 托盘命令 -> 退出";
+                ctx.running = false;
+                break;
+
+            case tray::Command::None:
+            default:
+                break;
+        }
+
         wallpaper::Tick(ctx.wallpaper);
         Sleep(8);
     }
 }
 
 void Shutdown(Context& ctx) {
+    // tray 依赖 shell hwnd，必须在 shell 销毁前删除
+    tray::Shutdown(ctx.tray);
     wallpaper::Shutdown(ctx.wallpaper);
     shell::Shutdown(ctx.shell);
     LOG_INFO << "App: 已关闭";
