@@ -14,6 +14,7 @@ enum class Command {
 struct Context {
     HWND owner = nullptr;
     HICON icon = nullptr;
+    bool owns_icon = false;
     bool added = false;
     Command pending_command = Command::None;
 };

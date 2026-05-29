@@ -22,6 +22,7 @@ cmake --build build --config Release
 1. 运行 `wallpaper.exe`，确保 `libmpv-2.dll` 和 `config.json` 在同一目录
 2. 修改 `config.json` 中的 `background_path` 指定视频路径（默认 `background.mp4`）
 3. 设置 `wallpaper_enabled` 为 `false` 可临时关闭壁纸，`auto_startup` 控制开机自启
+4. 程序启动后会在系统托盘显示图标
 
 ### 配置说明
 
@@ -36,8 +37,8 @@ cmake --build build --config Release
 ```
 
 - `auto_startup`：是否开机自启
-- `enabled`：是否启动壁纸（设为 `false` 仅处理开机自启）
-- `background_path`：视频文件路径（相对于 exe 目录，或绝对路径）
+- `enabled`：是否启动壁纸
+- `background_path`：视频文件路径
 
 ## 致谢
 

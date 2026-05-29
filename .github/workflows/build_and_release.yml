@@ -45,6 +45,7 @@ jobs:
           cp LICENSE release/
           cp config.example.json release/
           cp -r LICENSES release/
+          cp -r public release/
 
       - name: Create Zip
         shell: pwsh

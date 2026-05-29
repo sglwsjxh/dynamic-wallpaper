@@ -84,3 +84,13 @@ add_custom_command(TARGET wallpaper POST_BUILD
             "$<TARGET_FILE_DIR:wallpaper>/config.json"
     VERBATIM
 )
+
+# 复制 public 静态资源到输出目录
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/public")
+    add_custom_command(TARGET wallpaper POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+                "${CMAKE_CURRENT_SOURCE_DIR}/public"
+                "$<TARGET_FILE_DIR:wallpaper>/public"
+        VERBATIM
+    )
+endif()
