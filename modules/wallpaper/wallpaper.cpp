@@ -73,25 +73,17 @@ static bool RecreateWallpaper(Context& ctx) {
     return CreateWallpaperRuntime(ctx);
 }
 
-bool Init(Context& ctx, const Config& cfg) {
+bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance) {
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-    ctx.hInstance = GetModuleHandle(nullptr);
+    ctx.hInstance = hInstance;
     ctx.background_path = cfg.background_path;
-    ctx.running = true;
+    ctx.enabled = true;
     ctx.need_recreate = false;
-
-    ctx.ctrl_hwnd = win::CreateControllerWindow(ctx.hInstance, &ctx);
-    if (!ctx.ctrl_hwnd) {
-        LOG_ERR << "控制器窗口创建失败";
-        return false;
-    }
-    LOG_INFO << "控制器窗口创建成功, ctrl_hwnd=" << ctx.ctrl_hwnd;
+    ctx.next_recreate_tick = 0;
 
     if (!CreateWallpaperRuntime(ctx)) {
         LOG_ERR << "壁纸运行时创建失败";
-        DestroyWindow(ctx.ctrl_hwnd);
-        ctx.ctrl_hwnd = nullptr;
         return false;
     }
 
@@ -101,6 +93,8 @@ bool Init(Context& ctx, const Config& cfg) {
 }
 
 void Tick(Context& ctx) {
+    if (!ctx.enabled) return;
+
     if (ctx.mpv) {
         mpv_event* ev = mpv_wait_event(ctx.mpv, 0);
         if (ev->event_id == MPV_EVENT_FILE_LOADED) {
@@ -115,27 +109,59 @@ void Tick(Context& ctx) {
     }
 
     if (ctx.need_recreate) {
+        DWORD now = GetTickCount();
+        if (ctx.next_recreate_tick != 0 && now < ctx.next_recreate_tick)
+            return;
+
         HWND hProgman = FindWindow(L"Progman", L"Program Manager");
-        if (hProgman) {
-            LOG_INFO << "检测到 need_recreate，开始重建壁纸";
-            if (RecreateWallpaper(ctx)) {
-                ctx.need_recreate = false;
-                LOG_INFO << "重建成功，清除 need_recreate";
-            } else {
-                LOG_WARN << "重建失败，保留 need_recreate，等待下次重试";
-            }
+        if (!hProgman) {
+            ctx.next_recreate_tick = now + 1000;
+            return;
         }
-        // Progman 不存在时保留 need_recreate，下次 Tick 再试
+
+        LOG_INFO << "检测到 need_recreate，开始重建壁纸";
+        if (RecreateWallpaper(ctx)) {
+            ctx.need_recreate = false;
+            ctx.next_recreate_tick = 0;
+            LOG_INFO << "重建成功";
+        } else {
+            ctx.next_recreate_tick = now + 1000;
+            LOG_WARN << "重建失败，1 秒后重试";
+        }
     }
 }
 
 void Shutdown(Context& ctx) {
+    if (!ctx.enabled) return;
     DestroyWallpaperRuntime(ctx);
-    if (ctx.ctrl_hwnd) {
-        DestroyWindow(ctx.ctrl_hwnd);
-        ctx.ctrl_hwnd = nullptr;
-    }
+    ctx.enabled = false;
     LOG_INFO << "壁纸模块已卸载";
 }
 
+void OnExplorerRestarted(Context& ctx) {
+    if (!ctx.enabled) return;
+    LOG_INFO << "Wallpaper: Explorer 重建，标记重建";
+    ctx.need_recreate = true;
+    ctx.next_recreate_tick = 0;
 }
+
+void OnDisplayChanged(Context& ctx, int width, int height) {
+    if (!ctx.enabled) return;
+    LOG_INFO << "Wallpaper: 显示器变化 -> " << width << "x" << height;
+
+    if (ctx.wallpaper_hwnd && IsWindow(ctx.wallpaper_hwnd))
+        win::SetFullscreen(ctx.wallpaper_hwnd);
+    else {
+        ctx.need_recreate = true;
+        ctx.next_recreate_tick = 0;
+    }
+}
+
+void OnPowerResume(Context& ctx) {
+    if (!ctx.enabled) return;
+    LOG_INFO << "Wallpaper: 系统恢复，标记重建";
+    ctx.need_recreate = true;
+    ctx.next_recreate_tick = 0;
+}
+
+} // namespace wallpaper

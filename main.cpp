@@ -4,7 +4,7 @@
 #include "config/config.h"
 #include "process/process.h"
 #include "startup/startup.h"
-#include "wallpaper/wallpaper.h"
+#include "app/app.h"
 
 int main() {
     logm::Init();
@@ -19,37 +19,14 @@ int main() {
 
     proc::CloseOldInstances();
 
-    wallpaper::Context wpCtx;
-    bool wpOk = false;
-
-    if (cfg.wallpaper_enabled) {
-        wpOk = wallpaper::Init(wpCtx, cfg);
-        if (!wpOk)
-            LOG_WARN << "壁纸模块初始化失败，跳过";
-    } else {
-        LOG_INFO << "壁纸功能已禁用，跳过";
+    app::Context appCtx;
+    if (!app::Init(appCtx, cfg)) {
+        LOG_ERR << "App 初始化失败";
+        return 1;
     }
 
-    if (wpOk) {
-        MSG msg{};
-
-        while (wpCtx.running) {
-            while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-                if (msg.message == WM_QUIT) {
-                    wpCtx.running = false;
-                    break;
-                }
-                TranslateMessage(&msg);
-                DispatchMessage(&msg);
-            }
-            if (!wpCtx.running) break;
-
-            wallpaper::Tick(wpCtx);
-            Sleep(8);
-        }
-
-        wallpaper::Shutdown(wpCtx);
-    }
+    app::Run(appCtx);
+    app::Shutdown(appCtx);
 
     LOG_INFO << "程序退出";
     return 0;

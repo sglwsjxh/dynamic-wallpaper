@@ -1,7 +1,5 @@
 #include "wallpaper/window.h"
-#include "wallpaper/wallpaper.h"
 #include "logs/log.h"
-#include "wallpaper/media.h"
 
 namespace win {
 
@@ -149,16 +147,6 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
             return 0;
 #endif
 
-        case WM_DISPLAYCHANGE: {
-            int newW = LOWORD(lParam), newH = HIWORD(lParam);
-            LOG_INFO << "WM_DISPLAYCHANGE: 分辨率变化 -> " << newW << "x" << newH;
-            SetFullscreen(hwnd);
-
-            mpv_handle* ctx = reinterpret_cast<mpv_handle*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-            if (ctx) media::LogPlayerInfo(ctx);
-            break;
-        }
-
         case WM_SIZE:
             break;
 
@@ -169,75 +157,4 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     return DefWindowProc(hwnd, msg, wParam, lParam);
 }
 
-// 控制器窗口：隐藏，不嵌入桌面，生命周期跟随程序
-// 负责接收 TaskbarCreated、WM_DISPLAYCHANGE、WM_POWERBROADCAST
-
-HWND CreateControllerWindow(HINSTANCE hInstance, wallpaper::Context* ctx) {
-    WNDCLASSEX wc = { sizeof(WNDCLASSEX), 0, ControllerWndProc, 0, 0,
-                      hInstance, nullptr, nullptr, nullptr, nullptr,
-                      L"LowMemWallpaperCtrl", nullptr };
-    ATOM atom = RegisterClassEx(&wc);
-    if (!atom && GetLastError() != ERROR_CLASS_ALREADY_EXISTS) {
-        LOG_ERR << "CreateControllerWindow: RegisterClassEx 失败, err=" << GetLastError();
-        return nullptr;
-    }
-
-    HWND hwnd = CreateWindowEx(0, L"LowMemWallpaperCtrl", L"",
-                               WS_POPUP, 0, 0, 0, 0,
-                               nullptr, nullptr, hInstance, ctx);
-    if (!hwnd)
-        LOG_ERR << "CreateControllerWindow: CreateWindowEx 失败, err=" << GetLastError();
-    else
-        LOG_INFO << "CreateControllerWindow: ctrl_hwnd=" << hwnd;
-
-    return hwnd;
-}
-
-LRESULT CALLBACK ControllerWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    static const UINT uTaskbarCreated = RegisterWindowMessageW(L"TaskbarCreated");
-
-    if (msg == WM_NCCREATE) {
-        auto* cs = reinterpret_cast<CREATESTRUCT*>(lParam);
-        SetWindowLongPtr(hwnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(cs->lpCreateParams));
-        LOG_INFO << "Controller: WM_NCCREATE, ctx=" << cs->lpCreateParams;
-        return DefWindowProc(hwnd, msg, wParam, lParam);
-    }
-
-    auto* ctx = reinterpret_cast<wallpaper::Context*>(GetWindowLongPtr(hwnd, GWLP_USERDATA));
-
-    if (msg == uTaskbarCreated) {
-        LOG_INFO << "Controller: TaskbarCreated — Explorer 重启，准备重建壁纸";
-        if (ctx)
-            ctx->need_recreate = true;
-        return 0;
-    }
-
-    switch (msg) {
-        case WM_DISPLAYCHANGE: {
-            int newW = LOWORD(lParam), newH = HIWORD(lParam);
-            LOG_INFO << "Controller: WM_DISPLAYCHANGE -> " << newW << "x" << newH;
-            if (ctx && ctx->wallpaper_hwnd && IsWindow(ctx->wallpaper_hwnd))
-                SetFullscreen(ctx->wallpaper_hwnd);
-            break;
-        }
-
-        case WM_POWERBROADCAST:
-            if (wParam == PBT_APMSUSPEND) {
-                LOG_INFO << "Controller: 系统挂起";
-            } else if (wParam == PBT_APMRESUMEAUTOMATIC) {
-                LOG_INFO << "Controller: 系统恢复，标记重建";
-                if (ctx)
-                    ctx->need_recreate = true;
-            }
-            break;
-
-        case WM_DESTROY:
-            LOG_INFO << "Controller: 窗口销毁，程序退出";
-            PostQuitMessage(0);
-            return 0;
-    }
-
-    return DefWindowProc(hwnd, msg, wParam, lParam);
-}
-
-}
+} // namespace win
