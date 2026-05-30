@@ -6,6 +6,8 @@ if(NOT CMAKE_CONFIGURATION_TYPES AND NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the build type." FORCE)
 endif()
 
+file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/resources.rc" "IDI_ICON1 ICON \"${CMAKE_CURRENT_SOURCE_DIR}/public/icon.ico\"")
+
 add_executable(wallpaper WIN32
     main.cpp
 
@@ -22,6 +24,8 @@ add_executable(wallpaper WIN32
     modules/wallpaper/window.cpp
     modules/wallpaper/media.cpp
     modules/wallpaper/wallpaper.cpp
+
+    ${CMAKE_CURRENT_BINARY_DIR}/resources.rc
 )
 
 target_include_directories(wallpaper PRIVATE

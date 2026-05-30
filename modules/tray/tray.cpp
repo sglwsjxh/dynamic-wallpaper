@@ -73,108 +73,6 @@ static void ShowMenu(Context& ctx, int x, int y) {
     }
 }
 
-static HICON CreateGeneratedIcon() {
-    const int cx = 32;
-    const int cy = 32;
-
-    BITMAPINFO bmi{};
-    bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
-    bmi.bmiHeader.biWidth = cx;
-    bmi.bmiHeader.biHeight = -cy; // top-down
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-
-    HDC hdcScreen = GetDC(nullptr);
-    if (!hdcScreen) return nullptr;
-
-    void* bits = nullptr;
-    HBITMAP hbmColor = CreateDIBSection(hdcScreen, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
-    ReleaseDC(nullptr, hdcScreen);
-
-    if (!hbmColor || !bits) {
-        if (hbmColor) DeleteObject(hbmColor);
-        return nullptr;
-    }
-
-    auto* pixels = static_cast<uint32_t*>(bits);
-    std::memset(pixels, 0, static_cast<size_t>(cx) * cy * sizeof(uint32_t));
-
-    const int m = 2;
-    const int cr = 6;
-
-    for (int y = 0; y < cy; y++) {
-        for (int x = 0; x < cx; x++) {
-            if (x < m || x >= cx - m || y < m || y >= cy - m) continue;
-
-            // 四角圆角裁剪（坐标在圆角半径外则跳过）
-            bool skip = false;
-            if (x < m + cr && y < m + cr) {
-                int dx = x - (m + cr), dy = y - (m + cr);
-                if (dx * dx + dy * dy > cr * cr) skip = true;
-            } else if (x >= cx - m - cr && y < m + cr) {
-                int dx = x - (cx - m - cr), dy = y - (m + cr);
-                if (dx * dx + dy * dy > cr * cr) skip = true;
-            } else if (x < m + cr && y >= cy - m - cr) {
-                int dx = x - (m + cr), dy = y - (cy - m - cr);
-                if (dx * dx + dy * dy > cr * cr) skip = true;
-            } else if (x >= cx - m - cr && y >= cy - m - cr) {
-                int dx = x - (cx - m - cr), dy = y - (cy - m - cr);
-                if (dx * dx + dy * dy > cr * cr) skip = true;
-            }
-            if (skip) continue;
-
-            float t = (float)(x + y) / (float)(cx + cy - 2);
-            uint8_t rr = (uint8_t)(20 + (76 - 20) * t);
-            uint8_t gg = (uint8_t)(30 + (29 - 30) * t);
-            uint8_t bb = (uint8_t)(60 + (149 - 60) * t);
-            pixels[y * cx + x] = 0xFF000000 | (bb << 16) | (gg << 8) | rr;
-        }
-    }
-
-    const int sx = 7, sy = 10, sw = 18, sh = 13;
-    for (int y = sy; y < sy + sh && y < cy; y++) {
-        for (int x = sx; x < sx + sw && x < cx; x++) {
-            bool edge = (y == sy || y == sy + sh - 1 || x == sx || x == sx + sw - 1);
-            pixels[y * cx + x] = edge ? 0xFFB0B0C0 : 0xFF1A1A2E;
-        }
-    }
-
-    const int tl = 14, tt = 14, tb = 22, tTip = 22;
-    const int tMid = (tt + tb) / 2;
-    for (int y = tt; y <= tb && y < cy; y++) {
-        int width;
-        if (y < tMid) {
-            width = (tTip - tl) * (y - tt) / (tMid - tt);
-        } else {
-            width = (tTip - tl) * (tb - y) / (tb - tMid);
-        }
-        for (int x = tl; x <= tl + width && x < cx; x++) {
-            pixels[y * cx + x] = 0xFFFFFFFF;
-        }
-    }
-
-    // 单色 mask 全 0，32bpp alpha 决定透明区域
-    std::vector<uint8_t> maskBits((size_t)cx * cy / 8, 0);
-    HBITMAP hbmMask = CreateBitmap(cx, cy, 1, 1, maskBits.data());
-    if (!hbmMask) {
-        DeleteObject(hbmColor);
-        return nullptr;
-    }
-
-    ICONINFO ii{};
-    ii.fIcon = TRUE;
-    ii.hbmMask = hbmMask;
-    ii.hbmColor = hbmColor;
-
-    HICON hIcon = CreateIconIndirect(&ii);
-
-    DeleteObject(hbmMask);
-    DeleteObject(hbmColor);
-
-    return hIcon;
-}
-
 } // anonymous namespace
 
 bool Init(Context& ctx, HWND owner) {
@@ -184,13 +82,13 @@ bool Init(Context& ctx, HWND owner) {
     }
 
     ctx.owner = owner;
-    ctx.icon = CreateGeneratedIcon();
-    ctx.owns_icon = (ctx.icon != nullptr);
+    // 从生成的 rc 资源中加载 IDI_ICON1 图标
+    ctx.icon = LoadIconW(GetModuleHandleW(nullptr), L"IDI_ICON1");
+    ctx.owns_icon = false; // 系统资源加载的图标不需要我们手动 DestroyIcon
 
     if (!ctx.icon) {
-        LOG_WARN << "Tray: 自定义图标创建失败，使用系统默认图标";
-        ctx.icon = LoadIcon(nullptr, IDI_APPLICATION);
-        ctx.owns_icon = false;
+        LOG_WARN << "Tray: IDI_ICON1 资源加载失败，使用系统默认图标";
+        ctx.icon = LoadIconW(nullptr, IDI_APPLICATION);
     }
 
     ctx.added = false;
