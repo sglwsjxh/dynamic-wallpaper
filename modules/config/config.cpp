@@ -28,9 +28,13 @@ Config LoadConfig() {
         cfg.wallpaper_enabled = dw.value("enabled", true);
         cfg.background_path   = dw.value("background_path", "background.mp4");
 
+        auto overlay = j.value("desktop_overlay", nlohmann::json::object());
+        cfg.desktop_overlay_enabled = overlay.value("enabled", false);
+
         LOG_INFO << "配置: auto_startup=" << (cfg.auto_startup ? "true" : "false")
                  << " wallpaper_enabled=" << (cfg.wallpaper_enabled ? "true" : "false")
-                 << " path=" << cfg.background_path;
+                 << " path=" << cfg.background_path
+                 << " overlay=" << (cfg.desktop_overlay_enabled ? "true" : "false");
 
         return cfg;
     } catch (const std::exception& e) {

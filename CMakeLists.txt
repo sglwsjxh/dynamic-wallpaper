@@ -25,6 +25,8 @@ add_executable(wallpaper WIN32
     modules/wallpaper/media.cpp
     modules/wallpaper/wallpaper.cpp
 
+    modules/desktop_overlay/desktop_overlay.cpp
+
     ${CMAKE_CURRENT_BINARY_DIR}/resources.rc
 )
 
@@ -57,6 +59,7 @@ target_link_libraries(wallpaper PRIVATE
     dwmapi
     ole32
     dxgi
+    gdiplus
     "-Wl,-Bstatic"
     winpthread
     "-Wl,-Bdynamic"

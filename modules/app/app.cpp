@@ -22,6 +22,13 @@ bool Init(Context& ctx, const Config& cfg) {
         LOG_INFO << "App: 壁纸功能已禁用";
     }
 
+    if (cfg.desktop_overlay_enabled) {
+        if (!desktop_overlay::Init(ctx.overlay, ctx.hInstance))
+            LOG_WARN << "App: desktop_overlay 初始化失败，继续运行";
+    } else {
+        LOG_INFO << "App: desktop_overlay 已禁用";
+    }
+
     LOG_INFO << "App: 初始化完成";
     return true;
 }
@@ -48,6 +55,7 @@ void Run(Context& ctx) {
             LOG_INFO << "App: Explorer 重建，通知各模块";
             tray::OnExplorerRestarted(ctx.tray);
             wallpaper::OnExplorerRestarted(ctx.wallpaper);
+            desktop_overlay::OnExplorerRestarted(ctx.overlay);
             ctx.shell.explorer_recreated = false;
         }
 
@@ -56,12 +64,16 @@ void Run(Context& ctx) {
             wallpaper::OnDisplayChanged(ctx.wallpaper,
                                         ctx.shell.display_width,
                                         ctx.shell.display_height);
+            desktop_overlay::OnDisplayChanged(ctx.overlay,
+                                              ctx.shell.display_width,
+                                              ctx.shell.display_height);
             ctx.shell.display_changed = false;
         }
 
         if (ctx.shell.power_resumed) {
             LOG_INFO << "App: 系统恢复，通知各模块";
             wallpaper::OnPowerResume(ctx.wallpaper);
+            desktop_overlay::OnPowerResume(ctx.overlay);
             ctx.shell.power_resumed = false;
         }
 
@@ -92,6 +104,7 @@ void Run(Context& ctx) {
         }
 
         wallpaper::Tick(ctx.wallpaper);
+        desktop_overlay::Tick(ctx.overlay);
         Sleep(8);
     }
 }
@@ -100,6 +113,7 @@ void Shutdown(Context& ctx) {
     // tray 依赖 shell hwnd，必须在 shell 销毁前删除
     tray::Shutdown(ctx.tray);
     wallpaper::Shutdown(ctx.wallpaper);
+    desktop_overlay::Shutdown(ctx.overlay);
     shell::Shutdown(ctx.shell);
     LOG_INFO << "App: 已关闭";
 }

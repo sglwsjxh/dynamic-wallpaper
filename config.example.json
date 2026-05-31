@@ -3,5 +3,8 @@
     "dynamic_wallpaper": {
         "enabled": true,
         "background_path": "background.mp4"
+    },
+    "desktop_overlay": {
+        "enabled": true
     }
 }

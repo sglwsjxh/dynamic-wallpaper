@@ -5,6 +5,7 @@
 #include "shell/shell_controller.h"
 #include "tray/tray.h"
 #include "wallpaper/wallpaper.h"
+#include "desktop_overlay/desktop_overlay.h"
 
 namespace app {
 
@@ -15,6 +16,7 @@ struct Context {
     shell::Context shell;
     tray::Context tray;
     wallpaper::Context wallpaper;
+    desktop_overlay::Context overlay;
 };
 
 bool Init(Context& ctx, const Config& cfg);
