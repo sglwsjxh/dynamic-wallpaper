@@ -25,6 +25,10 @@ bool Init(Context& ctx, const Config& cfg) {
     if (cfg.desktop_overlay_enabled) {
         if (!desktop_overlay::Init(ctx.overlay, cfg, ctx.hInstance)) {
             LOG_ERR << "App: desktop_overlay 初始化失败，终止启动";
+            // Clean up modules that were initialized before the failure
+            wallpaper::Shutdown(ctx.wallpaper);
+            tray::Shutdown(ctx.tray);
+            shell::Shutdown(ctx.shell);
             return false;
         }
     } else {

@@ -22,6 +22,7 @@ int main() {
     app::Context appCtx;
     if (!app::Init(appCtx, cfg)) {
         LOG_ERR << "App 初始化失败";
+        app::Shutdown(appCtx);
         return 1;
     }
 

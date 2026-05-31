@@ -32,6 +32,13 @@ Config LoadConfig() {
         cfg.desktop_overlay_enabled = overlay.value("enabled", false);
         cfg.desktop_overlay_widgets_dir = overlay.value("widgets_dir", "public/widgets");
 
+        if (overlay.contains("order") && overlay["order"].is_array()) {
+            for (auto& id : overlay["order"]) {
+                if (id.is_string())
+                    cfg.desktop_overlay_widget_order.push_back(id.get<std::string>());
+            }
+        }
+
         LOG_INFO << "配置: auto_startup=" << (cfg.auto_startup ? "true" : "false")
                  << " wallpaper_enabled=" << (cfg.wallpaper_enabled ? "true" : "false")
                  << " path=" << cfg.background_path

@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 struct Config {
     bool auto_startup = true;
@@ -7,6 +8,7 @@ struct Config {
     std::string background_path = "background.mp4";
     bool desktop_overlay_enabled = false;
     std::string desktop_overlay_widgets_dir = "public/widgets";
+    std::vector<std::string> desktop_overlay_widget_order;
 };
 
 Config LoadConfig();

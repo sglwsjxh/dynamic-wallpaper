@@ -7,12 +7,24 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <gdiplus.h>
 #include <nlohmann/json.hpp>
 
 namespace desktop_overlay {
+
+static std::wstring Utf8ToWide(const std::string& value) {
+    if (value.empty()) return L"";
+
+    int size = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, nullptr, 0);
+    if (size <= 0) return L"";
+
+    std::wstring result(size - 1, L'\0');
+    MultiByteToWideChar(CP_UTF8, 0, value.c_str(), -1, result.data(), size);
+    return result;
+}
 
 // =========================================================================
 // CSS-like color parser
@@ -168,7 +180,7 @@ static std::optional<TextLayer> ParseWidgetJson(
             LOG_ERR << "Overlay: " << filePath << " 'id' 为空";
             return std::nullopt;
         }
-        layer.id.assign(id.begin(), id.end());
+        layer.id = Utf8ToWide(id);
     }
 
     // --- type (required) ---
@@ -187,6 +199,10 @@ static std::optional<TextLayer> ParseWidgetJson(
         layer.kind = *kind;
     }
 
+    // --- position / style / static_text (wrapped for type exceptions) ---
+    // json::value() throws if key exists but type mismatches (e.g. "50" instead of 50).
+    // We catch and log instead of letting it propagate as unhandled exception.
+    try {
     // --- position (required) ---
     {
         auto it = j.find("position");
@@ -231,7 +247,7 @@ static std::optional<TextLayer> ParseWidgetJson(
                 LOG_ERR << "Overlay: " << filePath << " 'style.font_family' 为空";
                 return std::nullopt;
             }
-            layer.font_family.assign(ff.begin(), ff.end());
+            layer.font_family = Utf8ToWide(ff);
         }
 
         // font_size (required)
@@ -268,7 +284,7 @@ static std::optional<TextLayer> ParseWidgetJson(
                 return std::nullopt;
             }
             std::string colorStr = *cIt;
-            std::wstring wcolor(colorStr.begin(), colorStr.end());
+            auto wcolor = Utf8ToWide(colorStr);
             auto color = ParseCssColor(wcolor);
             if (!color.has_value()) {
                 LOG_ERR << "Overlay: " << filePath << " 非法 color '" << colorStr << "'";
@@ -335,7 +351,7 @@ static std::optional<TextLayer> ParseWidgetJson(
                         return std::nullopt;
                     }
                     std::string scs = *scIt;
-                    std::wstring wscs(scs.begin(), scs.end());
+                    auto wscs = Utf8ToWide(scs);
                     auto sc = ParseCssColor(wscs);
                     if (!sc.has_value()) {
                         LOG_ERR << "Overlay: " << filePath << " 非法 shadow.color '" << scs << "'";
@@ -352,25 +368,15 @@ static std::optional<TextLayer> ParseWidgetJson(
         auto it = j.find("static_text");
         if (it != j.end() && it->is_string()) {
             std::string st = *it;
-            layer.static_text.assign(st.begin(), st.end());
+            layer.static_text = Utf8ToWide(st);
         }
+    }
+    } catch (const std::exception& e) {
+        LOG_ERR << "Overlay: " << filePath << " 配置解析异常: " << e.what();
+        return std::nullopt;
     }
 
     return layer;
-}
-
-// =========================================================================
-// Render order: Weekday (background) → Time → Date → StaticText
-// =========================================================================
-
-static int RenderOrder(TextKind kind) {
-    switch (kind) {
-    case TextKind::Weekday:    return 0;
-    case TextKind::Time:       return 1;
-    case TextKind::Date:       return 2;
-    case TextKind::StaticText: return 3;
-    }
-    return 99;
 }
 
 // =========================================================================
@@ -378,9 +384,11 @@ static int RenderOrder(TextKind kind) {
 // =========================================================================
 
 std::vector<TextLayer> LoadWidgetConfig(
-    const std::wstring& exeDir, const std::string& widgetsDir)
+    const std::wstring& exeDir, const std::string& widgetsDir,
+    const std::vector<std::string>& order)
 {
     std::vector<TextLayer> layers;
+    std::unordered_map<std::wstring, TextLayer> byId;
 
     auto dir = std::filesystem::path(exeDir) / widgetsDir;
 
@@ -407,8 +415,7 @@ std::vector<TextLayer> LoadWidgetConfig(
         std::ifstream file(filePath);
         if (!file.is_open()) {
             LOG_ERR << "Overlay: 无法打开组件文件: " << filePath;
-            layers.clear();
-            return layers;
+            return {}; // empty
         }
 
         // Parse JSON
@@ -417,8 +424,7 @@ std::vector<TextLayer> LoadWidgetConfig(
             file >> j;
         } catch (const std::exception& e) {
             LOG_ERR << "Overlay: " << filePath << " JSON 解析失败: " << e.what();
-            layers.clear();
-            return layers;
+            return {}; // empty
         }
 
         // Skip if not enabled
@@ -427,23 +433,41 @@ std::vector<TextLayer> LoadWidgetConfig(
 
         // Parse into TextLayer
         auto layer = ParseWidgetJson(j, filePath);
-        if (!layer.has_value()) {
-            layers.clear();
-            return layers; // error already logged by ParseWidgetJson
+        if (!layer.has_value())
+            return {}; // error already logged by ParseWidgetJson
+
+        if (order.empty()) {
+            // No ordering — push in collection order
+            layers.push_back(std::move(*layer));
+        } else {
+            // Buffer by id for order-based sorting
+                byId[layer->id] = std::move(*layer);
         }
-
-        layers.push_back(std::move(*layer));
     }
 
-    if (layers.empty()) {
-        LOG_ERR << "Overlay: 没有启用的组件 (所有 enabled=false)";
-        // empty return — caller treats as fatal
+    if (order.empty()) {
+        if (layers.empty())
+            LOG_ERR << "Overlay: 没有启用的组件 (所有 enabled=false)";
+        return layers;
     }
 
-    // Sort by render order regardless of filename
-    std::sort(layers.begin(), layers.end(), [](const TextLayer& a, const TextLayer& b) {
-        return RenderOrder(a.kind) < RenderOrder(b.kind);
-    });
+    // Order defines top-to-bottom: first id = topmost (drawn last)
+    layers.clear();
+    layers.reserve(order.size());
+    for (const auto& id : order) {
+        auto wideId = Utf8ToWide(id);
+        auto entry = byId.find(wideId);
+        if (entry == byId.end()) {
+            LOG_ERR << "Overlay: order 中指定的 id '" << id << "' 不存在";
+            return {}; // empty
+        }
+        layers.push_back(std::move(entry->second));
+        byId.erase(entry);
+    }
+
+    // Append any widgets not mentioned in order
+    for (auto& pair : byId)
+        layers.push_back(std::move(pair.second));
 
     return layers;
 }

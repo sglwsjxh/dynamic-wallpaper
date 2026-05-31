@@ -34,7 +34,13 @@ cmake --build build --config Release
         "background_path": "background.mp4"
     },
     "desktop_overlay": {
-        "enabled": true
+        "enabled": true,
+        "widgets_dir": "public/widgets",
+        "order": [
+            "time",
+            "date",
+            "weekday"
+        ]
     }
 }
 ```
@@ -46,6 +52,7 @@ cmake --build build --config Release
 | `dynamic_wallpaper.background_path` | string | Path to video file |
 | `desktop_overlay.enabled` | bool | Enable desktop text overlay (clock, date, etc.) |
 | `desktop_overlay.widgets_dir` | string | Widget JSON directory (default `public/widgets`) |
+| `desktop_overlay.order` | string[] | Widget draw order, top to bottom, matched by id — first element is topmost |
 
 ### Overlay (Desktop Text)
 
@@ -92,8 +99,8 @@ Each widget is defined as a `.json` file in `public/widgets/`, one layer per fil
 }
 ```
 
-- Add, remove or modify widget files freely — loaded on startup
-- Render order: Weekday (background) → Time → Date → StaticText
+- Add, remove or modify widget files, then restart to apply
+- Draw order is controlled by the `order` array in `config.json` — first element is topmost, last element is bottommost
 - For `type: "static"`, use the `static_text` field for fixed text
 - Supported color formats: `#RRGGBB`, `#AARRGGBB`, `rgb(r,g,b)`, `rgba(r,g,b,a)`, named colors
 

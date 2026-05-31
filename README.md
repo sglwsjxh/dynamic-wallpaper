@@ -34,7 +34,13 @@ cmake --build build --config Release
         "background_path": "background.mp4"
     },
     "desktop_overlay": {
-        "enabled": true
+        "enabled": true,
+        "widgets_dir": "public/widgets",
+        "order": [
+            "time",
+            "date",
+            "weekday"
+        ]
     }
 }
 ```
@@ -46,12 +52,13 @@ cmake --build build --config Release
 | `dynamic_wallpaper.background_path` | string | 视频文件路径 |
 | `desktop_overlay.enabled` | bool | 是否启用桌面文字叠加（时钟、日期等） |
 | `desktop_overlay.widgets_dir` | string | widget JSON 目录（默认 `public/widgets`，一般不需要改） |
+| `desktop_overlay.order` | string[] | widget 绘制顺序，从顶层到底层排列，按 id 匹配，数组中第一个在顶层 |
 
 ### Overlay 叠加层（桌面文字）
 
-程序支持在桌面上显示自定义文字叠加层，默认显示时钟、日期和星期背景。
+在桌面上显示自定义文字叠加层，默认显示时钟、日期和星期背景
 
-所有 widget 定义在 `public/widgets/` 目录下，每个 `.json` 文件对应一个图层。
+每个 widget 是一个 `.json` 文件，放在 `public/widgets/` 目录下，一个文件对应一个图层
 
 **默认 widget：**
 
@@ -92,9 +99,9 @@ cmake --build build --config Release
 }
 ```
 
-- 可根据需要添加、删除或修改 widget 文件，程序启动时自动读取
-- 渲染顺序：Weekday（背景底层）→ Time → Date → StaticText
-- `type` 为 `static` 时，额外字段 `static_text` 可显示固定文字
+- 添加、删除或修改 widget 文件后，重启程序即可生效
+- 绘制顺序由 `config.json` 的 `order` 数组控制，第一个元素在最顶层，最后一个在最底层
+- `type` 为 `static` 时，用 `static_text` 字段显示固定文字
 - 支持的颜色格式：`#RRGGBB`、`#AARRGGBB`、`rgb(r,g,b)`、`rgba(r,g,b,a)`、基本颜色名
 
 ## 致谢

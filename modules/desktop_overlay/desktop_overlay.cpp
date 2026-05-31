@@ -219,13 +219,11 @@ static void DrawTextLayer(Gdiplus::Graphics& graphics, const TextLayer& layer, i
 
     Gdiplus::RectF rect = CalcLayerRect(layer, screenW, screenH);
 
-    // Font — check availability for logging, then let GDI+ auto-fallback
-    {
-        Gdiplus::FontFamily ff(layer.font_family.c_str());
-        if (ff.GetLastStatus() != Gdiplus::Ok)
-            LOG_WARN << "Overlay: 字体 '" << layer.font_family << "' 不可用，使用系统默认";
-    }
     Gdiplus::Font font(layer.font_family.c_str(), layer.font_size, layer.font_style, Gdiplus::UnitPixel);
+    if (font.GetLastStatus() != Gdiplus::Ok) {
+        LOG_ERR << "Overlay: 字体 '" << layer.font_family << "' 创建失败，跳过渲染";
+        return;
+    }
 
     Gdiplus::StringFormat format;
     format.SetAlignment(static_cast<Gdiplus::StringAlignment>(layer.align));
@@ -313,8 +311,9 @@ static void RenderAndUpdate(Context& ctx) {
     blend.SourceConstantAlpha = 255;
     blend.AlphaFormat         = AC_SRC_ALPHA;
 
-    UpdateLayeredWindow(ctx.hwnd, hdcScreen, &ptPos, &szWindow,
-                        hdcMem, &ptSrc, 0, &blend, ULW_ALPHA);
+    if (!UpdateLayeredWindow(ctx.hwnd, hdcScreen, &ptPos, &szWindow,
+                             hdcMem, &ptSrc, 0, &blend, ULW_ALPHA))
+        LOG_ERR << "Overlay: UpdateLayeredWindow 失败, err=" << GetLastError();
 
     SelectObject(hdcMem, hOld);
     DeleteObject(hbm);
@@ -366,7 +365,8 @@ bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance) {
     // Load widget config from public/widgets/*.json
     {
         auto exeDir = path::GetExeDir();
-        auto loaded = LoadWidgetConfig(exeDir, cfg.desktop_overlay_widgets_dir);
+        auto loaded = LoadWidgetConfig(exeDir, cfg.desktop_overlay_widgets_dir,
+                                       cfg.desktop_overlay_widget_order);
         if (loaded.empty()) {
             LOG_ERR << "Overlay: 组件加载失败，终止初始化";
             s_ctx = nullptr;
@@ -476,6 +476,8 @@ bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance) {
     // Re-render after ShowWindow to ensure the window is visible first
     RenderAndUpdate(ctx);
 
+    ctx.enabled = true;
+
     int vsW = GetSystemMetrics(SM_CXVIRTUALSCREEN);
     int vsH = GetSystemMetrics(SM_CYVIRTUALSCREEN);
     LOG_INFO << "Overlay: 初始化完成 (hwnd=0x" << std::hex << (ULONG_PTR)ctx.hwnd << std::dec
@@ -484,6 +486,8 @@ bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance) {
 }
 
 void Tick(Context& ctx) {
+    if (!ctx.enabled) return;
+
     SYSTEMTIME now;
     GetLocalTime(&now);
 
@@ -504,6 +508,9 @@ void Tick(Context& ctx) {
 }
 
 void Shutdown(Context& ctx) {
+    if (!ctx.enabled) return;
+    ctx.enabled = false;
+
     LOG_INFO << "Overlay: 开始清理";
 
     if (ctx.hwnd && IsWindow(ctx.hwnd))
@@ -534,18 +541,21 @@ void Shutdown(Context& ctx) {
 }
 
 void OnExplorerRestarted(Context& ctx) {
+    if (!ctx.enabled) return;
     LOG_INFO << "Overlay: Explorer 重建，重新渲染";
     if (ctx.hwnd && IsWindow(ctx.hwnd))
         RenderAndUpdate(ctx);
 }
 
 void OnDisplayChanged(Context& ctx, int width, int height) {
+    if (!ctx.enabled) return;
     LOG_INFO << "Overlay: 显示器变化 (" << width << "x" << height << ")，重新渲染";
     if (ctx.hwnd && IsWindow(ctx.hwnd))
         RenderAndUpdate(ctx);
 }
 
 void OnPowerResume(Context& ctx) {
+    if (!ctx.enabled) return;
     LOG_INFO << "Overlay: 系统恢复，重新渲染";
     if (ctx.hwnd && IsWindow(ctx.hwnd))
         RenderAndUpdate(ctx);

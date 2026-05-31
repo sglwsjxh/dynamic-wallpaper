@@ -6,6 +6,11 @@
     },
     "desktop_overlay": {
         "enabled": true,
-        "widgets_dir": "public/widgets"
+        "widgets_dir": "public/widgets",
+"order": [
+    "time",
+    "date",
+    "weekday"
+]
     }
 }
