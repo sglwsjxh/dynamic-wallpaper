@@ -14,10 +14,10 @@ release/
 
 # logs
 logs/
-logs/*.log
+.log
 
 # config
-/config.json
+config.json
 
 # tmp
 tmp/
