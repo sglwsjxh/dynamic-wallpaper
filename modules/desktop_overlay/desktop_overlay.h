@@ -11,6 +11,8 @@ struct Context {
     ULONG_PTR gdiplus_token = 0;
     bool enabled = false;
     bool show_desktop = false;
+    int last_minute = -1;
+    int last_day = -1;
 };
 
 bool Init(Context& ctx, HINSTANCE hInstance);
