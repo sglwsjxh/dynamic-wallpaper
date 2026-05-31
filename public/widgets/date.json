@@ -1,0 +1,26 @@
+{
+    "id": "date",
+    "type": "date",
+    "enabled": true,
+    "position": {
+        "x_percent": 50.0,
+        "y_percent": 48.0,
+        "width_percent": 35.0,
+        "height_percent": 8.0,
+        "anchor": "center"
+    },
+    "style": {
+        "font_family": "Segoe UI",
+        "font_size": 38,
+        "font_style": "bold",
+        "color": "#E6FFFFFF",
+        "align": "center",
+        "line_align": "center",
+        "shadow": {
+            "enabled": true,
+            "offset_x": 1,
+            "offset_y": 1,
+            "color": "#55000000"
+        }
+    }
+}

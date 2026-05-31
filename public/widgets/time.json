@@ -1,0 +1,26 @@
+{
+    "id": "time",
+    "type": "time",
+    "enabled": true,
+    "position": {
+        "x_percent": 50.0,
+        "y_percent": 38.0,
+        "width_percent": 40.0,
+        "height_percent": 14.0,
+        "anchor": "center"
+    },
+    "style": {
+        "font_family": "Segoe UI",
+        "font_size": 95,
+        "font_style": "bold",
+        "color": "#F0FFFFFF",
+        "align": "center",
+        "line_align": "center",
+        "shadow": {
+            "enabled": true,
+            "offset_x": 2,
+            "offset_y": 2,
+            "color": "#66000000"
+        }
+    }
+}

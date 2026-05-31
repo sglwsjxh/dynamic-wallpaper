@@ -26,6 +26,7 @@ add_executable(wallpaper WIN32
     modules/wallpaper/wallpaper.cpp
 
     modules/desktop_overlay/desktop_overlay.cpp
+    modules/desktop_overlay/widget_config.cpp
 
     ${CMAKE_CURRENT_BINARY_DIR}/resources.rc
 )

@@ -23,8 +23,10 @@ bool Init(Context& ctx, const Config& cfg) {
     }
 
     if (cfg.desktop_overlay_enabled) {
-        if (!desktop_overlay::Init(ctx.overlay, ctx.hInstance))
-            LOG_WARN << "App: desktop_overlay 初始化失败，继续运行";
+        if (!desktop_overlay::Init(ctx.overlay, cfg, ctx.hInstance)) {
+            LOG_ERR << "App: desktop_overlay 初始化失败，终止启动";
+            return false;
+        }
     } else {
         LOG_INFO << "App: desktop_overlay 已禁用";
     }

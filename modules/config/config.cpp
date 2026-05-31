@@ -30,11 +30,13 @@ Config LoadConfig() {
 
         auto overlay = j.value("desktop_overlay", nlohmann::json::object());
         cfg.desktop_overlay_enabled = overlay.value("enabled", false);
+        cfg.desktop_overlay_widgets_dir = overlay.value("widgets_dir", "public/widgets");
 
         LOG_INFO << "配置: auto_startup=" << (cfg.auto_startup ? "true" : "false")
                  << " wallpaper_enabled=" << (cfg.wallpaper_enabled ? "true" : "false")
                  << " path=" << cfg.background_path
-                 << " overlay=" << (cfg.desktop_overlay_enabled ? "true" : "false");
+                 << " overlay=" << (cfg.desktop_overlay_enabled ? "true" : "false")
+                 << " widgets_dir=" << cfg.desktop_overlay_widgets_dir;
 
         return cfg;
     } catch (const std::exception& e) {

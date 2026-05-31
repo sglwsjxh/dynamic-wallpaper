@@ -5,6 +5,7 @@
         "background_path": "background.mp4"
     },
     "desktop_overlay": {
-        "enabled": true
+        "enabled": true,
+        "widgets_dir": "public/widgets"
     }
 }

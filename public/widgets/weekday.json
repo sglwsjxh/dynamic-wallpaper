@@ -1,0 +1,20 @@
+{
+    "id": "weekday",
+    "type": "weekday",
+    "enabled": true,
+    "position": {
+        "x_percent": 50.0,
+        "y_percent": 43.0,
+        "width_percent": 50.0,
+        "height_percent": 18.0,
+        "anchor": "center"
+    },
+    "style": {
+        "font_family": "Segoe Script",
+        "font_size": 140,
+        "font_style": "regular",
+        "color": "#44000000",
+        "align": "center",
+        "line_align": "center"
+    }
+}

@@ -1,5 +1,8 @@
 #include "desktop_overlay/desktop_overlay.h"
+#include "desktop_overlay/widget_config.h"
+#include "config/config.h"
 #include "logs/log.h"
+#include "path/path.h"
 
 #include <dwmapi.h>
 #include <gdiplus.h>
@@ -21,50 +24,6 @@ namespace desktop_overlay {
 #define INTERVAL_SHOWDESKTOP    250
 
 #define ZPOS_FLAGS (SWP_NOMOVE | SWP_NOSIZE | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING)
-
-// ---------------------------------------------------------------------------
-// Color / shadow / text layer types
-// ---------------------------------------------------------------------------
-
-struct ColorRgba {
-    BYTE a = 255;
-    BYTE r = 255;
-    BYTE g = 255;
-    BYTE b = 255;
-};
-
-struct TextShadow {
-    bool enabled = false;
-    float offset_x = 1.0f;
-    float offset_y = 1.0f;
-    ColorRgba color;
-};
-
-enum class TextKind { StaticText, Time, Date, Weekday };
-
-enum class TextAnchor { TopLeft, TopCenter, Center, BottomCenter };
-
-struct TextLayer {
-    std::wstring id;
-    TextKind kind = TextKind::StaticText;
-
-    float x_percent = 50.0f;
-    float y_percent = 50.0f;
-    float width_percent = 30.0f;
-    float height_percent = 10.0f;
-    TextAnchor anchor = TextAnchor::Center;
-
-    std::wstring static_text;
-    float font_size = 32.0f;
-    int font_style = Gdiplus::FontStyleRegular;
-    std::wstring font_family = L"Microsoft YaHei UI";
-
-    ColorRgba color;
-    TextShadow shadow;
-
-    Gdiplus::StringAlignment align = Gdiplus::StringAlignmentCenter;
-    Gdiplus::StringAlignment line_align = Gdiplus::StringAlignmentCenter;
-};
 
 // ---------------------------------------------------------------------------
 // Module-internal bridge for WinEventProc (cannot pass user data via hook)
@@ -181,86 +140,6 @@ static void CALLBACK WinEventProc(HWINEVENTHOOK hHook, DWORD event,
 }
 
 // ---------------------------------------------------------------------------
-// CSS-like color parser
-//   Supported: #RRGGBB, #AARRGGBB, rgb(r,g,b), rgba(r,g,b,a), white/black/transparent
-// ---------------------------------------------------------------------------
-
-static ColorRgba ParseCssColor(const std::wstring& value) {
-    ColorRgba result{255, 255, 255, 255};
-
-    if (value.empty()) return result;
-
-    // Named colors
-    if (value == L"white")      return {255, 255, 255, 255};
-    if (value == L"black")      return {255, 0,   0,   0  };
-    if (value == L"transparent") return {0,   0,   0,   0  };
-
-    // #RRGGBB or #AARRGGBB
-    if (value[0] == L'#') {
-        unsigned long val = wcstoul(value.c_str() + 1, nullptr, 16);
-        size_t len = value.length() - 1;
-        if (len == 6) {
-            result.r = (BYTE)((val >> 16) & 0xFF);
-            result.g = (BYTE)((val >> 8) & 0xFF);
-            result.b = (BYTE)(val & 0xFF);
-            result.a = 255;
-        } else if (len == 8) {
-            result.a = (BYTE)((val >> 24) & 0xFF);
-            result.r = (BYTE)((val >> 16) & 0xFF);
-            result.g = (BYTE)((val >> 8) & 0xFF);
-            result.b = (BYTE)(val & 0xFF);
-        }
-        return result;
-    }
-
-    // rgb() / rgba()
-    if (value.size() >= 4 && value[0] == L'r' && value[1] == L'g' && value[2] == L'b') {
-        auto parenOpen = value.find(L'(');
-        auto parenClose = value.find(L')');
-        if (parenOpen == std::wstring::npos || parenClose == std::wstring::npos) {
-            LOG_WARN << "Overlay: 颜色格式错误 '" << value << "'";
-            return result;
-        }
-
-        // Split by comma
-        std::wstring inner = value.substr(parenOpen + 1, parenClose - parenOpen - 1);
-        std::vector<std::wstring> parts;
-        size_t start = 0;
-        while (true) {
-            auto end = inner.find(L',', start);
-            if (end == std::wstring::npos) {
-                parts.push_back(inner.substr(start));
-                break;
-            }
-            parts.push_back(inner.substr(start, end - start));
-            start = end + 1;
-        }
-
-        // Trim whitespace
-        for (auto& p : parts) {
-            while (!p.empty() && p[0] == L' ') p.erase(0, 1);
-            while (!p.empty() && p.back() == L' ') p.pop_back();
-        }
-
-        if (parts.size() >= 3) {
-            result.r = (BYTE)std::min(std::wcstol(parts[0].c_str(), nullptr, 10), 255L);
-            result.g = (BYTE)std::min(std::wcstol(parts[1].c_str(), nullptr, 10), 255L);
-            result.b = (BYTE)std::min(std::wcstol(parts[2].c_str(), nullptr, 10), 255L);
-            result.a = 255;
-        }
-        if (parts.size() >= 4) {
-            double alpha = std::wcstod(parts[3].c_str(), nullptr);
-            if (alpha <= 1.0) alpha *= 255.0;
-            result.a = (BYTE)std::min(std::max((int)alpha, 0), 255);
-        }
-        return result;
-    }
-
-    LOG_WARN << "Overlay: 无法解析颜色 '" << value << "'";
-    return result;
-}
-
-// ---------------------------------------------------------------------------
 // Resolve dynamic text based on layer kind
 // ---------------------------------------------------------------------------
 
@@ -276,11 +155,11 @@ static std::wstring ResolveLayerText(const TextLayer& layer) {
     }
     case TextKind::Date: {
         static const wchar_t* months[] = {
-            L"Jan", L"Feb", L"Mar", L"Apr", L"May", L"Jun",
-            L"Jul", L"Aug", L"Sep", L"Oct", L"Nov", L"Dec"
+            L"January", L"February", L"March", L"April", L"May", L"June",
+            L"July", L"August", L"September", L"October", L"November", L"December"
         };
         wchar_t buf[32];
-        swprintf(buf, 32, L"%d %s", st.wDay, months[st.wMonth - 1]);
+        swprintf(buf, 32, L"%d %ls", st.wDay, months[st.wMonth - 1]);
         return buf;
     }
     case TextKind::Weekday: {
@@ -331,66 +210,6 @@ static Gdiplus::RectF CalcLayerRect(const TextLayer& layer, int screenW, int scr
 }
 
 // ---------------------------------------------------------------------------
-// Build the three default text layers
-// ---------------------------------------------------------------------------
-
-static std::vector<TextLayer> BuildDefaultLayers() {
-    std::vector<TextLayer> layers;
-
-    // Layer 1: weekday background (large semi-transparent decorative text)
-    TextLayer weekday;
-    weekday.id            = L"weekday_background";
-    weekday.kind          = TextKind::Weekday;
-    weekday.x_percent     = 43.5f;
-    weekday.y_percent     = 40.0f;
-    weekday.width_percent = 42.0f;
-    weekday.height_percent = 20.0f;
-    weekday.font_family   = L"Segoe Script";
-    weekday.font_size     = 150.0f;
-    weekday.font_style    = Gdiplus::FontStyleRegular;
-    weekday.color         = ParseCssColor(L"#33000000");
-    layers.push_back(weekday);
-
-    // Layer 2: main time (large light weight digits)
-    TextLayer time;
-    time.id            = L"main_time";
-    time.kind          = TextKind::Time;
-    time.x_percent     = 50.0f;
-    time.y_percent     = 38.0f;
-    time.width_percent = 30.0f;
-    time.height_percent = 10.0f;
-    time.font_family   = L"Segoe UI Light";
-    time.font_size     = 78.0f;
-    time.font_style    = Gdiplus::FontStyleRegular;
-    time.color         = ParseCssColor(L"#F2FFFFFF");
-    time.shadow.enabled   = true;
-    time.shadow.offset_x  = 1.0f;
-    time.shadow.offset_y  = 1.0f;
-    time.shadow.color     = ParseCssColor(L"#66000000");
-    layers.push_back(time);
-
-    // Layer 3: date (smaller bold text)
-    TextLayer date;
-    date.id            = L"main_date";
-    date.kind          = TextKind::Date;
-    date.x_percent     = 50.0f;
-    date.y_percent     = 44.0f;
-    date.width_percent = 20.0f;
-    date.height_percent = 6.0f;
-    date.font_family   = L"Segoe UI";
-    date.font_size     = 34.0f;
-    date.font_style    = Gdiplus::FontStyleBold;
-    date.color         = ParseCssColor(L"#E6FFFFFF");
-    date.shadow.enabled   = true;
-    date.shadow.offset_x  = 1.0f;
-    date.shadow.offset_y  = 1.0f;
-    date.shadow.color     = ParseCssColor(L"#66000000");
-    layers.push_back(date);
-
-    return layers;
-}
-
-// ---------------------------------------------------------------------------
 // Draw a single text layer via GDI+
 // ---------------------------------------------------------------------------
 
@@ -409,8 +228,8 @@ static void DrawTextLayer(Gdiplus::Graphics& graphics, const TextLayer& layer, i
     Gdiplus::Font font(layer.font_family.c_str(), layer.font_size, layer.font_style, Gdiplus::UnitPixel);
 
     Gdiplus::StringFormat format;
-    format.SetAlignment(layer.align);
-    format.SetLineAlignment(layer.line_align);
+    format.SetAlignment(static_cast<Gdiplus::StringAlignment>(layer.align));
+    format.SetLineAlignment(static_cast<Gdiplus::StringAlignment>(layer.line_align));
 
     // Shadow first
     if (layer.shadow.enabled) {
@@ -481,8 +300,7 @@ static void RenderAndUpdate(Context& ctx) {
         Gdiplus::Graphics graphics(hdcMem);
         graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAliasGridFit);
 
-        static const auto layers = BuildDefaultLayers();
-        for (const auto& layer : layers)
+        for (const auto& layer : ctx.layers)
             DrawTextLayer(graphics, layer, screenW, screenH);
     }
 
@@ -541,9 +359,21 @@ static LRESULT CALLBACK WndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lPar
 // Public API
 // ---------------------------------------------------------------------------
 
-bool Init(Context& ctx, HINSTANCE hInstance) {
+bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance) {
     ctx.hInstance = hInstance;
     s_ctx = &ctx;
+
+    // Load widget config from public/widgets/*.json
+    {
+        auto exeDir = path::GetExeDir();
+        auto loaded = LoadWidgetConfig(exeDir, cfg.desktop_overlay_widgets_dir);
+        if (loaded.empty()) {
+            LOG_ERR << "Overlay: 组件加载失败，终止初始化";
+            s_ctx = nullptr;
+            return false;
+        }
+        ctx.layers = std::move(loaded);
+    }
 
     // GDI+ startup
     Gdiplus::GdiplusStartupInput gdiplusInput;
