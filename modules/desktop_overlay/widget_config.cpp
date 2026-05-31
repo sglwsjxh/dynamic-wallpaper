@@ -2,7 +2,9 @@
 #include "logs/log.h"
 
 #include <windows.h>  // required before gdiplus.h (MinGW: defines PROPID etc.)
+#include <algorithm>
 #include <cstdlib>
+#include <cwctype>
 #include <filesystem>
 #include <fstream>
 #include <optional>
@@ -212,18 +214,53 @@ static std::optional<TextLayer> ParseWidgetJson(
         }
         const auto& pos = *it;
 
-        layer.x_percent     = pos.value("x_percent", 50.0f);
-        layer.y_percent     = pos.value("y_percent", 50.0f);
-        layer.width_percent = pos.value("width_percent", 30.0f);
-        layer.height_percent = pos.value("height_percent", 10.0f);
-
-        auto anchorStr = pos.value("anchor", std::string("center"));
-        auto anchor = ParseAnchor(anchorStr);
-        if (!anchor.has_value()) {
-            LOG_ERR << "Overlay: " << filePath << " 非法 position.anchor '" << anchorStr << "'";
-            return std::nullopt;
+        {
+            auto xIt = pos.find("x_percent");
+            if (xIt == pos.end() || !xIt->is_number()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.x_percent'";
+                return std::nullopt;
+            }
+            layer.x_percent = xIt->get<float>();
         }
-        layer.anchor = *anchor;
+        {
+            auto yIt = pos.find("y_percent");
+            if (yIt == pos.end() || !yIt->is_number()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.y_percent'";
+                return std::nullopt;
+            }
+            layer.y_percent = yIt->get<float>();
+        }
+        {
+            auto wIt = pos.find("width_percent");
+            if (wIt == pos.end() || !wIt->is_number()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.width_percent'";
+                return std::nullopt;
+            }
+            layer.width_percent = wIt->get<float>();
+        }
+        {
+            auto hIt = pos.find("height_percent");
+            if (hIt == pos.end() || !hIt->is_number()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.height_percent'";
+                return std::nullopt;
+            }
+            layer.height_percent = hIt->get<float>();
+        }
+
+        {
+            auto aIt = pos.find("anchor");
+            if (aIt == pos.end() || !aIt->is_string()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.anchor'";
+                return std::nullopt;
+            }
+            std::string anchorStr = *aIt;
+            auto anchor = ParseAnchor(anchorStr);
+            if (!anchor.has_value()) {
+                LOG_ERR << "Overlay: " << filePath << " 非法 position.anchor '" << anchorStr << "'";
+                return std::nullopt;
+            }
+            layer.anchor = *anchor;
+        }
     }
 
     // --- style (required) ---
@@ -427,9 +464,17 @@ std::vector<TextLayer> LoadWidgetConfig(
             return {}; // empty
         }
 
-        // Skip if not enabled
-        if (!j.value("enabled", true))
-            continue;
+        {
+            auto enabledIt = j.find("enabled");
+            if (enabledIt != j.end()) {
+                if (!enabledIt->is_boolean()) {
+                    LOG_ERR << "Overlay: " << filePath << " 'enabled' 类型错误，应为 boolean";
+                    return {};
+                }
+                if (!enabledIt->get<bool>())
+                    continue;
+            }
+        }
 
         // Parse into TextLayer
         auto layer = ParseWidgetJson(j, filePath);
