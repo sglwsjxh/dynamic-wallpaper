@@ -8,6 +8,8 @@
 #include <gdiplus.h>
 #include <cstdio>
 #include <cstdlib>
+#include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -175,21 +177,25 @@ static std::wstring ResolveLayerText(const TextLayer& layer) {
 }
 
 // ---------------------------------------------------------------------------
-// Calculate absolute rectangle from percentage-based layer config
+// Calculate absolute rectangle from percentage-based position
 // ---------------------------------------------------------------------------
 
-static Gdiplus::RectF CalcLayerRect(const TextLayer& layer, int screenW, int screenH) {
-    float centerX = screenW * layer.x_percent / 100.0f;
-    float centerY = screenH * layer.y_percent / 100.0f;
-    float width   = screenW * layer.width_percent / 100.0f;
-    float height  = screenH * layer.height_percent / 100.0f;
+static Gdiplus::RectF CalcAnchorRect(double x_pct, double y_pct, double w_pct, double h_pct, TextAnchor anchor, int screenW, int screenH) {
+    float centerX = screenW * x_pct / 100.0f;
+    float centerY = screenH * y_pct / 100.0f;
+    float width   = screenW * w_pct / 100.0f;
+    float height  = screenH * h_pct / 100.0f;
 
     float left, top;
 
-    switch (layer.anchor) {
+    switch (anchor) {
     case TextAnchor::TopLeft:
         left = centerX;
         top  = centerY;
+        break;
+    case TextAnchor::BottomLeft:
+        left = centerX;
+        top  = centerY - height;
         break;
     case TextAnchor::TopCenter:
         left = centerX - width / 2.0f;
@@ -217,7 +223,7 @@ static void DrawTextLayer(Gdiplus::Graphics& graphics, const TextLayer& layer, i
     std::wstring text = ResolveLayerText(layer);
     if (text.empty()) return;
 
-    Gdiplus::RectF rect = CalcLayerRect(layer, screenW, screenH);
+    Gdiplus::RectF rect = CalcAnchorRect(layer.x_percent, layer.y_percent, layer.width_percent, layer.height_percent, layer.anchor, screenW, screenH);
 
     Gdiplus::Font font(layer.font_family.c_str(), layer.font_size, layer.font_style, Gdiplus::UnitPixel);
     if (font.GetLastStatus() != Gdiplus::Ok) {
@@ -244,6 +250,58 @@ static void DrawTextLayer(Gdiplus::Graphics& graphics, const TextLayer& layer, i
     Gdiplus::SolidBrush textBrush(
         Gdiplus::Color(layer.color.a, layer.color.r, layer.color.g, layer.color.b));
     graphics.DrawString(text.c_str(), -1, &font, rect, &format, &textBrush);
+}
+
+// ---------------------------------------------------------------------------
+// Draw a single audio spectrum layer via GDI+
+// ---------------------------------------------------------------------------
+
+static void DrawAudioSpectrumLayer(Gdiplus::Graphics& graphics, const AudioSpectrumLayer& layer, int screenW, int screenH, const float* bands) {
+    Gdiplus::RectF rect = CalcAnchorRect(layer.x_percent, layer.y_percent, layer.width_percent, layer.height_percent, layer.anchor, screenW, screenH);
+
+    int numBands = std::min(layer.style.bands, kAudioBands);
+    float barW = std::max(layer.style.radius * 2.0f, 3.0f);
+    float gap = layer.style.gap;
+    float minH = layer.style.min_height;
+    float maxH = layer.style.max_height;
+
+    Gdiplus::SolidBrush barBrush(Gdiplus::Color(layer.style.color.a, layer.style.color.r, layer.style.color.g, layer.style.color.b));
+
+    float spacing = barW + gap;
+    float totalWidth = numBands * spacing - gap;
+    float startX = rect.X;
+
+    switch (layer.anchor) {
+    case TextAnchor::TopCenter:
+    case TextAnchor::BottomCenter:
+    case TextAnchor::Center:
+        startX += (rect.Width - totalWidth) / 2.0f;
+        break;
+    default:
+        break;
+    }
+
+    float baseline = rect.Y + rect.Height;
+    float cornerR = std::min(barW / 2.0f, 4.0f);
+
+    for (int i = 0; i < numBands; i++) {
+        float magnitude = std::clamp(bands[i], 0.0f, 1.0f);
+        float barH = minH + (maxH - minH) * magnitude;
+        if (barH < 1.0f) barH = 1.0f;
+
+        float x = startX + i * spacing;
+        float y = baseline - barH;
+
+        Gdiplus::GraphicsPath path;
+        path.AddLine(x + cornerR, y, x + barW - cornerR, y);
+        path.AddArc(x + barW - cornerR * 2.0f, y, cornerR * 2.0f, cornerR * 2.0f, 270.0f, 90.0f);
+        path.AddLine(x + barW, y + cornerR, x + barW, baseline);
+        path.AddLine(x, baseline, x, y + cornerR);
+        path.AddArc(x, y, cornerR * 2.0f, cornerR * 2.0f, 180.0f, 90.0f);
+        path.CloseFigure();
+
+        graphics.FillPath(&barBrush, &path);
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -298,8 +356,12 @@ static void RenderAndUpdate(Context& ctx) {
         Gdiplus::Graphics graphics(hdcMem);
         graphics.SetTextRenderingHint(Gdiplus::TextRenderingHintAntiAliasGridFit);
 
-        for (const auto& layer : ctx.layers)
-            DrawTextLayer(graphics, layer, screenW, screenH);
+        for (const auto& item : ctx.layers) {
+            if (auto* text = std::get_if<TextLayer>(&item))
+                DrawTextLayer(graphics, *text, screenW, screenH);
+            else if (auto* audio = std::get_if<AudioSpectrumLayer>(&item))
+                DrawAudioSpectrumLayer(graphics, *audio, screenW, screenH, ctx.audio_bands.data());
+        }
     }
 
     // Update layered window (full virtual screen)
@@ -373,6 +435,13 @@ bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance) {
             return false;
         }
         ctx.layers = std::move(loaded);
+    }
+
+    for (const auto& item : ctx.layers) {
+        if (std::get_if<AudioSpectrumLayer>(&item)) {
+            ctx.has_audio_spectrum = true;
+            break;
+        }
     }
 
     // GDI+ startup
@@ -501,6 +570,15 @@ void Tick(Context& ctx) {
     if (now.wDay != ctx.last_day) {
         ctx.last_day = now.wDay;
         needRedraw = true;
+    }
+
+    if (ctx.has_audio_spectrum && ctx.audio_bands_updated) {
+        ctx.audio_bands_updated = false;
+        static int frame_count = 0;
+        if (++frame_count >= 4) {
+            frame_count = 0;
+            needRedraw = true;
+        }
     }
 
     if (needRedraw && ctx.hwnd && IsWindow(ctx.hwnd))

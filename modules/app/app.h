@@ -6,6 +6,7 @@
 #include "tray/tray.h"
 #include "wallpaper/wallpaper.h"
 #include "desktop_overlay/desktop_overlay.h"
+#include "audio/audio.h"
 
 namespace app {
 
@@ -17,6 +18,7 @@ struct Context {
     tray::Context tray;
     wallpaper::Context wallpaper;
     desktop_overlay::Context overlay;
+    audio::Context audio;
 };
 
 bool Init(Context& ctx, const Config& cfg);

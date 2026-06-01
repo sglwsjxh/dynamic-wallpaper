@@ -39,8 +39,13 @@ cmake --build build --config Release
         "order": [
             "time",
             "date",
-            "weekday"
+            "weekday",
+            "audio_spectrum"
         ]
+    },
+    "audio": {
+        "enabled": true,
+        "widget_id": "audio_spectrum"
     }
 }
 ```
@@ -53,12 +58,15 @@ cmake --build build --config Release
 | `desktop_overlay.enabled` | bool | 是否启用桌面文字叠加（时钟、日期等） |
 | `desktop_overlay.widgets_dir` | string | widget JSON 目录（默认 `public/widgets`，一般不需要改） |
 | `desktop_overlay.order` | string[] | widget 绘制顺序，从顶层到底层排列，按 id 匹配，数组中第一个在顶层 |
+| `audio.enabled` | bool | 是否启用音频频谱采集分析 |
+| `audio.widget_id` | string | 音频频谱对应的 widget id（需与 overlay order 中一致） |
 
 ### Overlay 叠加层（桌面文字）
 
-在桌面上显示自定义文字叠加层，默认显示时钟、日期和星期背景
+在桌面上显示自定义文字叠加层，默认显示时钟、日期、星期背景和音频频谱。
 
-每个 widget 是一个 `.json` 文件，放在 `public/widgets/` 目录下，一个文件对应一个图层
+每个 widget 是一个 `.json` 文件，放在 `public/widgets/` 目录下，一个文件对应一个图层。
+仓库中追踪的是 `.example.json` 模板文件，构建时会自动复制为 `.json`，避免你的配置被 git 覆盖。
 
 **默认 widget：**
 
@@ -67,6 +75,7 @@ cmake --build build --config Release
 | `weekday.json` | 星期背景（如 Monday） | Segoe Script 140pt，半透明装饰文字 |
 | `time.json` | 时钟（如 14:30） | Segoe UI 95pt 粗体，居中 |
 | `date.json` | 日期（如 1 June） | Segoe UI 36pt 粗体，居中 |
+| `audio_spectrum.json` | 音频频谱可视化 | WASAPI 环回采集 + FFT 分析，柱状图渲染 |
 
 **可定制的字段：**
 
@@ -102,12 +111,25 @@ cmake --build build --config Release
 - 添加、删除或修改 widget 文件后，重启程序即可生效
 - 绘制顺序由 `config.json` 的 `order` 数组控制，第一个元素在最顶层，最后一个在最底层
 - `type` 为 `static` 时，用 `static_text` 字段显示固定文字
+- `type` 为 `audio_spectrum` 时，渲染音频频谱柱状图，支持以下额外样式参数：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bands` | int | 频谱条数量（默认 36） |
+| `gap` | float | 条间距（px） |
+| `min_height` | float | 最矮条高度（px） |
+| `max_height` | float | 最高条高度（px） |
+| `sensitivity` | float | 灵敏度（值越大跳动越明显） |
+| `smoothing` | float | 平滑系数（0~1，越大越平滑但响应越慢） |
+| `color` | string | 频谱条颜色（#AARRGGBB 格式） |
+
 - 支持的颜色格式：`#RRGGBB`、`#AARRGGBB`、`rgb(r,g,b)`、`rgba(r,g,b,a)`、基本颜色名
 
 ## 致谢
 
 - [mpv](https://mpv.io/) — 视频播放核心引擎，基于 LGPLv2.1+ 许可使用
 - [nlohmann/json](https://github.com/nlohmann/json) — JSON 解析库，MIT 许可使用
+- [KISS FFT](https://github.com/mborgerding/kissfft) — 快速傅里叶变换库，BSD-3-Clause 许可使用
 
 ## 许可证
 

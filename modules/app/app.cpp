@@ -35,6 +35,17 @@ bool Init(Context& ctx, const Config& cfg) {
         LOG_INFO << "App: desktop_overlay 已禁用";
     }
 
+    float audioSensitivity = 20.0f;
+    int audioBands = 96;
+    for (const auto& item : ctx.overlay.layers) {
+        if (const auto* audio = std::get_if<desktop_overlay::AudioSpectrumLayer>(&item)) {
+            audioSensitivity = audio->style.sensitivity;
+            audioBands = audio->style.bands;
+            break;
+        }
+    }
+    audio::Init(ctx.audio, 48000, audioBands, 0.78f, audioSensitivity);
+
     LOG_INFO << "App: 初始化完成";
     return true;
 }
@@ -110,6 +121,9 @@ void Run(Context& ctx) {
         }
 
         wallpaper::Tick(ctx.wallpaper);
+        audio::Tick(ctx.audio);
+        ctx.overlay.audio_bands = ctx.audio.bands;
+        ctx.overlay.audio_bands_updated = true;
         desktop_overlay::Tick(ctx.overlay);
         Sleep(8);
     }
@@ -119,6 +133,7 @@ void Shutdown(Context& ctx) {
     // tray 依赖 shell hwnd，必须在 shell 销毁前删除
     tray::Shutdown(ctx.tray);
     wallpaper::Shutdown(ctx.wallpaper);
+    audio::Shutdown(ctx.audio);
     desktop_overlay::Shutdown(ctx.overlay);
     shell::Shutdown(ctx.shell);
     LOG_INFO << "App: 已关闭";

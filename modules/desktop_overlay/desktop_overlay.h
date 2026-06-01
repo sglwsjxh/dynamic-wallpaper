@@ -1,5 +1,6 @@
 #pragma once
 #include <windows.h>
+#include <array>
 #include <vector>
 
 #include "desktop_overlay/widget_types.h"
@@ -7,6 +8,8 @@
 struct Config;
 
 namespace desktop_overlay {
+
+constexpr int kAudioBands = 96;
 
 struct Context {
     HINSTANCE hInstance = nullptr;
@@ -18,7 +21,10 @@ struct Context {
     bool show_desktop = false;
     int last_minute = -1;
     int last_day = -1;
-    std::vector<TextLayer> layers;
+    std::vector<WidgetItem> layers;
+    bool has_audio_spectrum = false;
+    std::array<float, kAudioBands> audio_bands{};
+    bool audio_bands_updated = false;
 };
 
 bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance);

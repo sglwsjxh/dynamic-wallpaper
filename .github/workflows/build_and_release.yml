@@ -47,6 +47,12 @@ jobs:
           cp -r LICENSES release/
           cp -r public release/
 
+          # Create .json from .example.json for widget template configurations
+          for f in release/public/widgets/*.example.json; do
+            base="${f%.example.json}"
+            cp "$f" "$base.json"
+          done
+
       - name: Create Zip
         shell: pwsh
         run: |

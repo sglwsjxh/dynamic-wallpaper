@@ -1,6 +1,8 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <variant>
+#include <vector>
 
 namespace desktop_overlay {
 
@@ -19,7 +21,39 @@ struct TextShadow {
 };
 
 enum class TextKind { StaticText, Time, Date, Weekday };
-enum class TextAnchor { TopLeft, TopCenter, Center, BottomCenter };
+enum class TextAnchor { TopLeft, TopCenter, Center, BottomCenter, BottomLeft };
+
+// =========================================================================
+// Audio spectrum widget types
+// =========================================================================
+
+struct AudioSpectrumStyle {
+    int bands = 96;
+    float radius = 2.0f;
+    float gap = 5.0f;
+    float min_height = 2.0f;
+    float max_height = 34.0f;
+    float sensitivity = 2.0f;
+    float smoothing = 0.78f;
+    bool dotted = true;
+    ColorRgba color;
+};
+
+struct AudioSpectrumLayer {
+    std::wstring id;
+
+    float x_percent = 49.0f;
+    float y_percent = 70.0f;
+    float width_percent = 47.0f;
+    float height_percent = 6.0f;
+    TextAnchor anchor = TextAnchor::BottomLeft;
+
+    AudioSpectrumStyle style;
+};
+
+// =========================================================================
+// Text widget types (unchanged)
+// =========================================================================
 
 struct TextLayer {
     std::wstring id;
@@ -42,5 +76,7 @@ struct TextLayer {
     int align = 1;               // Gdiplus::StringAlignmentCenter = 1
     int line_align = 1;          // Gdiplus::StringAlignmentCenter = 1
 };
+
+using WidgetItem = std::variant<TextLayer, AudioSpectrumLayer>;
 
 } // namespace desktop_overlay

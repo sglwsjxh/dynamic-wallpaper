@@ -28,6 +28,13 @@ add_executable(wallpaper WIN32
     modules/desktop_overlay/desktop_overlay.cpp
     modules/desktop_overlay/widget_config.cpp
 
+    modules/audio/audio_capture.cpp
+    modules/audio/audio_analyzer.cpp
+    modules/audio/audio.cpp
+
+    third_party/kissfft/kiss_fft.c
+    third_party/kissfft/kiss_fftr.c
+
     ${CMAKE_CURRENT_BINARY_DIR}/resources.rc
 )
 
@@ -49,6 +56,7 @@ target_compile_options(wallpaper PRIVATE -Wall)
 
 target_include_directories(wallpaper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mpv/include")
 target_include_directories(wallpaper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/json/include")
+target_include_directories(wallpaper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/kissfft")
 target_link_directories(wallpaper PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/third_party/mpv/lib")
 
 target_link_libraries(wallpaper PRIVATE
@@ -61,6 +69,8 @@ target_link_libraries(wallpaper PRIVATE
     ole32
     dxgi
     gdiplus
+    avrt
+    uuid
     "-Wl,-Bstatic"
     winpthread
     "-Wl,-Bdynamic"
@@ -101,4 +111,15 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/public")
                 "$<TARGET_FILE_DIR:wallpaper>/public"
         VERBATIM
     )
+
+    # 将 .example.json 复制为 .json，确保编译输出目录内有可用的 widget 配置
+    # （git 只追踪 .example.json，本地 *.json 会被 .gitignore 忽略）
+    foreach(WIDGET audio_spectrum date time weekday)
+        add_custom_command(TARGET wallpaper POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    "${CMAKE_CURRENT_SOURCE_DIR}/public/widgets/${WIDGET}.example.json"
+                    "$<TARGET_FILE_DIR:wallpaper>/public/widgets/${WIDGET}.json"
+            VERBATIM
+        )
+    endforeach()
 endif()

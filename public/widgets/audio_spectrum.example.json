@@ -1,0 +1,24 @@
+{
+    "id": "audio_spectrum",
+    "type": "audio_spectrum",
+    "enabled": true,
+    "position": {
+        "x_percent": 22.0,
+        "y_percent": 80.0,
+        "width_percent": 50.0,
+        "height_percent": 8.0,
+        "anchor": "bottom_left"
+    },
+    "style": {
+        "mode": "dotted_wave",
+        "bands": 36,
+        "radius": 5.0,
+        "gap": 5.0,
+        "min_height": 6.0,
+        "max_height": 80.0,
+        "sensitivity": 400.0,
+        "smoothing": 0.78,
+        "dotted": false,
+        "color": "#B2A7FF"
+    }
+}

@@ -39,8 +39,13 @@ cmake --build build --config Release
         "order": [
             "time",
             "date",
-            "weekday"
+            "weekday",
+            "audio_spectrum"
         ]
+    },
+    "audio": {
+        "enabled": true,
+        "widget_id": "audio_spectrum"
     }
 }
 ```
@@ -52,13 +57,16 @@ cmake --build build --config Release
 | `dynamic_wallpaper.background_path` | string | Path to video file |
 | `desktop_overlay.enabled` | bool | Enable desktop text overlay (clock, date, etc.) |
 | `desktop_overlay.widgets_dir` | string | Widget JSON directory (default `public/widgets`) |
-| `desktop_overlay.order` | string[] | Widget draw order, top to bottom, matched by id — first element is topmost |
+| `desktop_overlay.order` | string[] | Widget draw order, top to bottom, matched by id, first element is topmost |
+| `audio.enabled` | bool | Enable audio spectrum capture and analysis |
+| `audio.widget_id` | string | Audio spectrum widget id (must match an entry in overlay order) |
 
 ### Overlay (Desktop Text)
 
-The app can render custom text overlays on the desktop. By default it shows a clock, date, and weekday background.
+The app can render custom overlays on the desktop. By default it shows a clock, date, weekday background, and audio spectrum.
 
 Each widget is defined as a `.json` file in `public/widgets/`, one layer per file.
+The repository tracks `.example.json` template files instead. Build scripts automatically copy them to `.json`, so your local configuration won't be overwritten by git.
 
 **Default widgets:**
 
@@ -67,6 +75,7 @@ Each widget is defined as a `.json` file in `public/widgets/`, one layer per fil
 | `weekday.json` | Weekday background (e.g. Monday) | Segoe Script 140pt, semi-transparent decorative text |
 | `time.json` | Clock (e.g. 14:30) | Segoe UI 95pt bold, centered |
 | `date.json` | Date (e.g. 1 June) | Segoe UI 36pt bold, centered |
+| `audio_spectrum.json` | Audio spectrum visualization | WASAPI loopback capture + FFT analysis, bar rendering |
 
 **Customizable fields:**
 
@@ -102,12 +111,25 @@ Each widget is defined as a `.json` file in `public/widgets/`, one layer per fil
 - Add, remove or modify widget files, then restart to apply
 - Draw order is controlled by the `order` array in `config.json` — first element is topmost, last element is bottommost
 - For `type: "static"`, use the `static_text` field for fixed text
+- For `type: "audio_spectrum"`, renders audio spectrum bars with these extra style parameters:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `bands` | int | Number of spectrum bars (default 36) |
+| `gap` | float | Gap between bars (px) |
+| `min_height` | float | Minimum bar height (px) |
+| `max_height` | float | Maximum bar height (px) |
+| `sensitivity` | float | Sensitivity (higher = more responsive) |
+| `smoothing` | float | Smoothing factor (0~1, higher = smoother but slower) |
+| `color` | string | Bar color (#AARRGGBB format) |
+
 - Supported color formats: `#RRGGBB`, `#AARRGGBB`, `rgb(r,g,b)`, `rgba(r,g,b,a)`, named colors
 
 ## Acknowledgements
 
 - [mpv](https://mpv.io/) — Video playback engine, used under LGPLv2.1+
 - [nlohmann/json](https://github.com/nlohmann/json) — JSON parsing library, MIT License
+- [KISS FFT](https://github.com/mborgerding/kissfft) — Fast Fourier Transform library, BSD-3-Clause License
 
 ## License
 

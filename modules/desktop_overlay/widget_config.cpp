@@ -143,6 +143,7 @@ static std::optional<TextAnchor> ParseAnchor(const std::string& s) {
     if (s == "top_center")    return TextAnchor::TopCenter;
     if (s == "center")        return TextAnchor::Center;
     if (s == "bottom_center") return TextAnchor::BottomCenter;
+    if (s == "bottom_left")   return TextAnchor::BottomLeft;
     return std::nullopt;
 }
 
@@ -162,10 +163,10 @@ static std::optional<int> ParseAlignment(const std::string& s) {
 }
 
 // =========================================================================
-// Parse a single widget JSON file into a TextLayer
+// Parse a single text widget JSON file into a TextLayer
 // =========================================================================
 
-static std::optional<TextLayer> ParseWidgetJson(
+static std::optional<TextLayer> ParseTextWidgetJson(
     const nlohmann::json& j, const std::filesystem::path& filePath)
 {
     TextLayer layer;
@@ -416,16 +417,175 @@ static std::optional<TextLayer> ParseWidgetJson(
     return layer;
 }
 
+static std::optional<AudioSpectrumLayer> ParseAudioSpectrumWidgetJson(
+    const nlohmann::json& j, const std::filesystem::path& filePath)
+{
+    AudioSpectrumLayer layer;
+
+    // --- id (required) ---
+    {
+        auto it = j.find("id");
+        if (it == j.end() || !it->is_string()) {
+            LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'id'";
+            return std::nullopt;
+        }
+        std::string id = *it;
+        if (id.empty()) {
+            LOG_ERR << "Overlay: " << filePath << " 'id' 为空";
+            return std::nullopt;
+        }
+        layer.id = Utf8ToWide(id);
+    }
+
+    try {
+    // --- position (required) ---
+    {
+        auto it = j.find("position");
+        if (it == j.end() || !it->is_object()) {
+            LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position'";
+            return std::nullopt;
+        }
+        const auto& pos = *it;
+
+        {
+            auto xIt = pos.find("x_percent");
+            if (xIt == pos.end() || !xIt->is_number()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.x_percent'";
+                return std::nullopt;
+            }
+            layer.x_percent = xIt->get<float>();
+        }
+        {
+            auto yIt = pos.find("y_percent");
+            if (yIt == pos.end() || !yIt->is_number()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.y_percent'";
+                return std::nullopt;
+            }
+            layer.y_percent = yIt->get<float>();
+        }
+        {
+            auto wIt = pos.find("width_percent");
+            if (wIt == pos.end() || !wIt->is_number()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.width_percent'";
+                return std::nullopt;
+            }
+            layer.width_percent = wIt->get<float>();
+        }
+        {
+            auto hIt = pos.find("height_percent");
+            if (hIt == pos.end() || !hIt->is_number()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.height_percent'";
+                return std::nullopt;
+            }
+            layer.height_percent = hIt->get<float>();
+        }
+
+        {
+            auto aIt = pos.find("anchor");
+            if (aIt == pos.end() || !aIt->is_string()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'position.anchor'";
+                return std::nullopt;
+            }
+            std::string anchorStr = *aIt;
+            auto anchor = ParseAnchor(anchorStr);
+            if (!anchor.has_value()) {
+                LOG_ERR << "Overlay: " << filePath << " 非法 position.anchor '" << anchorStr << "'";
+                return std::nullopt;
+            }
+            layer.anchor = *anchor;
+        }
+    }
+
+    // --- style (required) ---
+    {
+        auto it = j.find("style");
+        if (it == j.end() || !it->is_object()) {
+            LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'style'";
+            return std::nullopt;
+        }
+        const auto& style = *it;
+
+        {
+            auto modeIt = style.find("mode");
+            if (modeIt != style.end()) {
+                if (!modeIt->is_string()) {
+                    LOG_ERR << "Overlay: " << filePath << " 'style.mode' 类型错误";
+                    return std::nullopt;
+                }
+                std::string mode = *modeIt;
+                if (mode != "dotted_wave")
+                    LOG_WARN << "Overlay: " << filePath << " 未知 audio_spectrum mode '" << mode << "'，使用 dotted_wave";
+            }
+        }
+
+        layer.style.bands = style.value("bands", 96);
+        layer.style.radius = style.value("radius", 2.0f);
+        layer.style.gap = style.value("gap", 5.0f);
+        layer.style.min_height = style.value("min_height", 2.0f);
+        layer.style.max_height = style.value("max_height", 34.0f);
+        layer.style.sensitivity = style.value("sensitivity", 2.0f);
+        layer.style.smoothing = style.value("smoothing", 0.78f);
+        layer.style.dotted = style.value("dotted", true);
+
+        {
+            auto cIt = style.find("color");
+            if (cIt == style.end() || !cIt->is_string()) {
+                LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'style.color'";
+                return std::nullopt;
+            }
+            std::string colorStr = *cIt;
+            auto wcolor = Utf8ToWide(colorStr);
+            auto color = ParseCssColor(wcolor);
+            if (!color.has_value()) {
+                LOG_ERR << "Overlay: " << filePath << " 非法 color '" << colorStr << "'";
+                return std::nullopt;
+            }
+            layer.style.color = *color;
+        }
+    }
+    } catch (const std::exception& e) {
+        LOG_ERR << "Overlay: " << filePath << " 配置解析异常: " << e.what();
+        return std::nullopt;
+    }
+
+    return layer;
+}
+
+static std::optional<WidgetItem> ParseWidgetJson(
+    const nlohmann::json& j, const std::filesystem::path& filePath)
+{
+    auto it = j.find("type");
+    if (it == j.end() || !it->is_string()) {
+        LOG_ERR << "Overlay: " << filePath << " 缺少或无效的 'type'";
+        return std::nullopt;
+    }
+
+    std::string typeStr = *it;
+    if (typeStr == "audio_spectrum") {
+        auto layer = ParseAudioSpectrumWidgetJson(j, filePath);
+        if (!layer.has_value()) return std::nullopt;
+        return WidgetItem{std::move(*layer)};
+    }
+
+    auto layer = ParseTextWidgetJson(j, filePath);
+    if (!layer.has_value()) return std::nullopt;
+    return WidgetItem{std::move(*layer)};
+}
+
+static const std::wstring& WidgetId(const WidgetItem& item) {
+    return std::visit([](const auto& layer) -> const std::wstring& { return layer.id; }, item);
+}
+
 // =========================================================================
 // Load all widget JSON files from the widgets directory
 // =========================================================================
 
-std::vector<TextLayer> LoadWidgetConfig(
+std::vector<WidgetItem> LoadWidgetConfig(
     const std::wstring& exeDir, const std::string& widgetsDir,
     const std::vector<std::string>& order)
 {
-    std::vector<TextLayer> layers;
-    std::unordered_map<std::wstring, TextLayer> byId;
+    std::vector<WidgetItem> layers;
+    std::unordered_map<std::wstring, WidgetItem> byId;
 
     auto dir = std::filesystem::path(exeDir) / widgetsDir;
 
@@ -476,7 +636,7 @@ std::vector<TextLayer> LoadWidgetConfig(
             }
         }
 
-        // Parse into TextLayer
+        // Parse into WidgetItem
         auto layer = ParseWidgetJson(j, filePath);
         if (!layer.has_value())
             return {}; // error already logged by ParseWidgetJson
@@ -486,7 +646,7 @@ std::vector<TextLayer> LoadWidgetConfig(
             layers.push_back(std::move(*layer));
         } else {
             // Buffer by id for order-based sorting
-                byId[layer->id] = std::move(*layer);
+                byId[WidgetId(*layer)] = std::move(*layer);
         }
     }
 
