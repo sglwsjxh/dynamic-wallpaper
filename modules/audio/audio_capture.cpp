@@ -246,11 +246,14 @@ void AudioCapture::CaptureThread() {
         int totalPackets = 0;
         int silentPackets = 0;
         int activePackets = 0;
+        int idleCycles = 0;
 
         while (running_ && SUCCEEDED(hr)) {
             UINT32 packetLength = 0;
             hr = pCaptureClient->GetNextPacketSize(&packetLength);
             if (FAILED(hr)) break;
+
+            bool hadData = false;
 
             while (running_ && packetLength > 0) {
                 BYTE* pData = nullptr;
@@ -260,27 +263,43 @@ void AudioCapture::CaptureThread() {
                 hr = pCaptureClient->GetBuffer(&pData, &numFrames, &flags, nullptr, nullptr);
                 if (FAILED(hr)) break;
 
+                hadData = true;
                 totalPackets++;
                 if (flags & AUDCLNT_BUFFERFLAGS_SILENT) {
                     silentPackets++;
-                } else {
-                    activePackets++;
-                }
-
-                if ((flags & AUDCLNT_BUFFERFLAGS_SILENT) == 0 && numFrames > 0 && analyzer_) {
-                    if (ConvertToMonoFloat(pData, numFrames, pwfx, monoBuffer)) {
+                    // Feed zeros so FFT naturally decays the bands during silence
+                    if (numFrames > 0 && analyzer_) {
+                        monoBuffer.assign(numFrames, 0.0f);
                         analyzer_->FeedSamples(monoBuffer.data(), static_cast<int>(monoBuffer.size()));
                         analyzer_->Process();
-                    } else {
-                        LOG_WARN << "AudioCapture: 不支持的音频格式 tag=" << pwfx->wFormatTag
-                                 << " bits=" << pwfx->wBitsPerSample
-                                 << " channels=" << pwfx->nChannels;
+                    }
+                } else {
+                    activePackets++;
+                    if (numFrames > 0 && analyzer_) {
+                        if (ConvertToMonoFloat(pData, numFrames, pwfx, monoBuffer)) {
+                            analyzer_->FeedSamples(monoBuffer.data(), static_cast<int>(monoBuffer.size()));
+                            analyzer_->Process();
+                        } else {
+                            LOG_WARN << "AudioCapture: 不支持的音频格式 tag=" << pwfx->wFormatTag
+                                     << " bits=" << pwfx->wBitsPerSample
+                                     << " channels=" << pwfx->nChannels;
+                        }
                     }
                 }
 
                 pCaptureClient->ReleaseBuffer(numFrames);
                 hr = pCaptureClient->GetNextPacketSize(&packetLength);
                 if (FAILED(hr)) break;
+            }
+
+            if (hadData) {
+                idleCycles = 0;
+            } else if (analyzer_) {
+                // No packets at all — complete silence, decay gradually
+                idleCycles++;
+                if (idleCycles >= 10) {
+                    analyzer_->Decay(0.85f);
+                }
             }
 
             cycleCount++;
