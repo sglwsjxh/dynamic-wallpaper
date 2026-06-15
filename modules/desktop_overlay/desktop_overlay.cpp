@@ -282,7 +282,6 @@ static void DrawAudioSpectrumLayer(Gdiplus::Graphics& graphics, const AudioSpect
     }
 
     float baseline = rect.Y + rect.Height;
-    float cornerR = std::min(barW / 2.0f, 4.0f);
 
     for (int i = 0; i < numBands; i++) {
         float magnitude = std::clamp(bands[i], 0.0f, 1.0f);
@@ -292,15 +291,23 @@ static void DrawAudioSpectrumLayer(Gdiplus::Graphics& graphics, const AudioSpect
         float x = startX + i * spacing;
         float y = baseline - barH;
 
-        Gdiplus::GraphicsPath path;
-        path.AddLine(x + cornerR, y, x + barW - cornerR, y);
-        path.AddArc(x + barW - cornerR * 2.0f, y, cornerR * 2.0f, cornerR * 2.0f, 270.0f, 90.0f);
-        path.AddLine(x + barW, y + cornerR, x + barW, baseline);
-        path.AddLine(x, baseline, x, y + cornerR);
-        path.AddArc(x, y, cornerR * 2.0f, cornerR * 2.0f, 180.0f, 90.0f);
-        path.CloseFigure();
+        if (layer.style.dotted) {
+            float dotSize = barW;
+            float cy = baseline - dotSize - std::max(0.0f, barH - dotSize);
+            graphics.FillEllipse(&barBrush, x, cy, dotSize, dotSize);
+        } else {
+            float cornerR = std::min(barW / 2.0f, 4.0f);
 
-        graphics.FillPath(&barBrush, &path);
+            Gdiplus::GraphicsPath path;
+            path.AddLine(x + cornerR, y, x + barW - cornerR, y);
+            path.AddArc(x + barW - cornerR * 2.0f, y, cornerR * 2.0f, cornerR * 2.0f, 270.0f, 90.0f);
+            path.AddLine(x + barW, y + cornerR, x + barW, baseline);
+            path.AddLine(x, baseline, x, y + cornerR);
+            path.AddArc(x, y, cornerR * 2.0f, cornerR * 2.0f, 180.0f, 90.0f);
+            path.CloseFigure();
+
+            graphics.FillPath(&barBrush, &path);
+        }
     }
 }
 
@@ -575,7 +582,7 @@ void Tick(Context& ctx) {
     if (ctx.has_audio_spectrum && ctx.audio_bands_updated) {
         ctx.audio_bands_updated = false;
         static int frame_count = 0;
-        if (++frame_count >= 4) {
+        if (++frame_count >= 2) {
             frame_count = 0;
             needRedraw = true;
         }

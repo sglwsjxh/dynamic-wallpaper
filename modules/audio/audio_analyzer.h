@@ -13,8 +13,7 @@ public:
     AudioAnalyzer();
     ~AudioAnalyzer();
 
-    // Initialize with sample rate, band count, and sensitivity
-    void Init(int sampleRate, int bands, float sensitivity = 2.0f);
+    void Init(int sampleRate, int bands, float sensitivity = 2.0f, float smoothing = 0.78f);
 
     // Feed PCM float mono samples
     void FeedSamples(const float* samples, int count);
@@ -40,6 +39,7 @@ private:
     int sampleRate_ = 48000;
     int numBands_ = 96;
     float sensitivity_ = 2.0f;
+    float smoothing_ = 0.78f;
     int writePos_ = 0;
     bool filled_ = false;
 

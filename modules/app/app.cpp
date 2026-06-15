@@ -36,15 +36,17 @@ bool Init(Context& ctx, const Config& cfg) {
     }
 
     float audioSensitivity = 20.0f;
+    float audioSmoothing = 0.78f;
     int audioBands = 96;
     for (const auto& item : ctx.overlay.layers) {
         if (const auto* audio = std::get_if<desktop_overlay::AudioSpectrumLayer>(&item)) {
             audioSensitivity = audio->style.sensitivity;
+            audioSmoothing = audio->style.smoothing;
             audioBands = audio->style.bands;
             break;
         }
     }
-    audio::Init(ctx.audio, 48000, audioBands, 0.78f, audioSensitivity);
+    audio::Init(ctx.audio, 48000, audioBands, audioSmoothing, audioSensitivity);
 
     LOG_INFO << "App: 初始化完成";
     return true;

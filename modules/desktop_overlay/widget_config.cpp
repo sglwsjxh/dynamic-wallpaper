@@ -595,10 +595,11 @@ std::vector<WidgetItem> LoadWidgetConfig(
         return layers; // empty
     }
 
-    // Collect all .json files
+    // Collect all .json files (skip *.example.json to avoid double-load)
     std::vector<std::filesystem::path> files;
     for (auto& entry : std::filesystem::directory_iterator(dir)) {
-        if (entry.path().extension() == ".json")
+        if (entry.path().extension() == ".json" &&
+            entry.path().stem().extension() != ".example")
             files.push_back(entry.path());
     }
 

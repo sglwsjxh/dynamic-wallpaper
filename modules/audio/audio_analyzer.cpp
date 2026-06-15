@@ -37,12 +37,13 @@ AudioAnalyzer::~AudioAnalyzer() {
     }
 }
 
-void AudioAnalyzer::Init(int sampleRate, int bands, float sensitivity) {
+void AudioAnalyzer::Init(int sampleRate, int bands, float sensitivity, float smoothing) {
     std::lock_guard<std::mutex> lock(mutex_);
 
     sampleRate_ = sampleRate > 0 ? sampleRate : 48000;
     numBands_ = std::clamp(bands, 1, kMaxBands);
     sensitivity_ = sensitivity > 0.0f ? sensitivity : kDefaultSensitivity;
+    smoothing_ = std::clamp(smoothing, 0.0f, 1.0f);
     writePos_ = 0;
     filled_ = false;
 
@@ -160,7 +161,7 @@ void AudioAnalyzer::ApplySmoothing() {
     for (int i = 0; i < numBands_; ++i) {
         float previous = bands_[i];
         float current = currentBands_[i];
-        bands_[i] = previous * kDefaultSmoothing + current * (1.0f - kDefaultSmoothing);
+        bands_[i] = previous * smoothing_ + current * (1.0f - smoothing_);
     }
 
     for (int i = numBands_; i < kMaxBands; ++i)

@@ -17,7 +17,7 @@ bool Init(Context& ctx, int sampleRate, int numBands, float smoothing, float sen
     ctx.smoothing = smoothing;
 
     ctx.analyzer = std::make_unique<AudioAnalyzer>();
-    ctx.analyzer->Init(sampleRate, numBands, sensitivity);
+    ctx.analyzer->Init(sampleRate, numBands, sensitivity, smoothing);
 
     ctx.capture = std::make_unique<AudioCapture>();
     if (!ctx.capture->Start(ctx.analyzer.get())) {

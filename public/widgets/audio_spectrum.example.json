@@ -18,7 +18,7 @@
         "max_height": 80.0,
         "sensitivity": 400.0,
         "smoothing": 0.78,
-        "dotted": false,
+        "dotted": true,
         "color": "#B2A7FF"
     }
 }
