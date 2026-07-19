@@ -1,0 +1,59 @@
+name: CI Build
+
+on:
+  pull_request:
+    branches: [main]
+
+  push:
+    branches: [main]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Setup MSYS2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-make
+            git
+
+      - name: Configure
+        shell: msys2 {0}
+        run: |
+          cmake -S . -B build -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          cmake --build build --config Release -j $(nproc)
+
+      - name: Verify binaries
+        shell: pwsh
+        run: |
+          if (-not (Test-Path build/wallpaper.exe)) {
+            Throw "wallpaper.exe not found after build"
+          }
+          Write-Host "Build succeeded, output:"
+          Get-Item build/wallpaper.exe | Select-Object Name, Length, LastWriteTime
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wallpaper-ci-${{ github.sha }}
+          path: |
+            build/wallpaper.exe
+            build/libmpv-2.dll
