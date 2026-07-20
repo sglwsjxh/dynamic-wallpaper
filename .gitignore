@@ -3,6 +3,7 @@ build/
 dist/
 release/
 *.exe
+*.dll
 *.zip
 
 # video
@@ -23,8 +24,5 @@ logs/
 # tmp
 tmp/
 temp/
-test/
-tests/
-test*
 *.tmp
 *.bak
