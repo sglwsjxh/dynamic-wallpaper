@@ -90,7 +90,8 @@ void ConfigureLowOverhead(mpv_handle* ctx) {
     SetOption(ctx, "dither", "no");
     SetOption(ctx, "gpu-shader-cache-size", "0");
     SetOption(ctx, "demuxer-max-bytes", "8MiB");
-    SetOption(ctx, "video-sync", "display-vdrop");
+    SetOption(ctx, "video-sync", "desync");
+    SetOption(ctx, "frame-drop", "vo");
     SetOption(ctx, "loop", "inf");
     SetOption(ctx, "panscan", "1.0");
     SetOption(ctx, "d3d11-output-format", "bgra8");
