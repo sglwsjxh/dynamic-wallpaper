@@ -16,6 +16,7 @@ struct Context {
     bool need_recreate = false;
     DWORD next_recreate_tick = 0;
     std::string background_path;
+    std::string gpu_preference = "auto";
 };
 
 bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance);
