@@ -31,7 +31,8 @@ cmake --build build --config Release
     "auto_startup": true,
     "dynamic_wallpaper": {
         "enabled": true,
-        "background_path": "background.mp4"
+        "background_path": "background.mp4",
+        "gpu": "auto"
     },
     "desktop_overlay": {
         "enabled": true,
@@ -55,6 +56,7 @@ cmake --build build --config Release
 | `auto_startup` | bool | Autostart with Windows |
 | `dynamic_wallpaper.enabled` | bool | Enable video wallpaper |
 | `dynamic_wallpaper.background_path` | string | Path to video file |
+| `dynamic_wallpaper.gpu` | string | GPU preference: `auto` (auto discrete priority) / `integrated` (force iGPU, save dGPU VRAM) / `discrete` (force dGPU) / explicit adapter name like `"NVIDIA GeForce RTX 4060"` (case-insensitive substring match). Default `auto`, restart required after change |
 | `desktop_overlay.enabled` | bool | Enable desktop text overlay (clock, date, etc.) |
 | `desktop_overlay.widgets_dir` | string | Widget JSON directory (default `public/widgets`) |
 | `desktop_overlay.order` | string[] | Widget draw order, top to bottom, matched by id, first element is topmost |
