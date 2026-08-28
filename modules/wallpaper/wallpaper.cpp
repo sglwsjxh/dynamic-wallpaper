@@ -46,7 +46,7 @@ static bool CreateWallpaperRuntime(Context& ctx) {
     DEVMODE dm{};
     dm.dmSize = sizeof(dm);
     EnumDisplaySettings(nullptr, ENUM_CURRENT_SETTINGS, &dm);
-    media::AutoConfigureGPU(ctx.mpv, dm.dmPelsWidth, dm.dmPelsHeight);
+    media::AutoConfigureGPU(ctx.mpv, dm.dmPelsWidth, dm.dmPelsHeight, ctx.gpu_preference);
 
     if (!media::SetOutputWindow(ctx.mpv, ctx.wallpaper_hwnd)) {
         DestroyWallpaperRuntime(ctx);
@@ -78,6 +78,7 @@ bool Init(Context& ctx, const Config& cfg, HINSTANCE hInstance) {
 
     ctx.hInstance = hInstance;
     ctx.background_path = cfg.background_path;
+    ctx.gpu_preference = cfg.wallpaper_gpu;
     ctx.enabled = true;
     ctx.need_recreate = false;
     ctx.next_recreate_tick = 0;

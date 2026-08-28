@@ -31,7 +31,8 @@ cmake --build build --config Release
     "auto_startup": true,
     "dynamic_wallpaper": {
         "enabled": true,
-        "background_path": "background.mp4"
+        "background_path": "background.mp4",
+        "gpu": "auto"
     },
     "desktop_overlay": {
         "enabled": true,
@@ -55,6 +56,7 @@ cmake --build build --config Release
 | `auto_startup` | bool | 是否开机自启 |
 | `dynamic_wallpaper.enabled` | bool | 是否启动壁纸 |
 | `dynamic_wallpaper.background_path` | string | 视频文件路径 |
+| `dynamic_wallpaper.gpu` | string | GPU 偏好：auto 自动 / integrated 强制集显（省独显显存） / discrete 强制独显 / 显式适配器名如 "NVIDIA GeForce RTX 4060"（大小写不敏感子串匹配），默认 auto，修改后需重启 |
 | `desktop_overlay.enabled` | bool | 是否启用桌面文字叠加（时钟、日期等） |
 | `desktop_overlay.widgets_dir` | string | widget JSON 目录（默认 `public/widgets`，一般不需要改） |
 | `desktop_overlay.order` | string[] | widget 绘制顺序，从顶层到底层排列，按 id 匹配，数组中第一个在顶层 |

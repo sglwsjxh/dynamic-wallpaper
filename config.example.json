@@ -2,7 +2,8 @@
     "auto_startup": true,
     "dynamic_wallpaper": {
         "enabled": true,
-        "background_path": "background.mp4"
+        "background_path": "background.mp4",
+        "gpu": "auto"
     },
     "desktop_overlay": {
         "enabled": true,

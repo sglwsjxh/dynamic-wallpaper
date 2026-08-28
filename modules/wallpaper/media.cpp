@@ -4,6 +4,11 @@
 #include <filesystem>
 #include <iostream>
 #include <dxgi.h>
+#include <string>
+#include <vector>
+#include <algorithm>
+#include <cctype>
+#include <cwctype>
 
 namespace {
 
@@ -14,7 +19,56 @@ bool SetOption(mpv_handle* ctx, const char* key, const char* value) {
     return ret >= 0;
 }
 
+std::string Trim(const std::string& s) {
+    size_t a = s.find_first_not_of(" \t\r\n");
+    if (a == std::string::npos) return "";
+    size_t b = s.find_last_not_of(" \t\r\n");
+    return s.substr(a, b - a + 1);
 }
+
+std::string ToLower(const std::string& s) {
+    std::string out = s;
+    std::transform(out.begin(), out.end(), out.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return out;
+}
+
+std::wstring WStringToLower(const std::wstring& s) {
+    std::wstring out = s;
+    std::transform(out.begin(), out.end(), out.begin(),
+                   [](wchar_t c) { return std::towlower(c); });
+    return out;
+}
+
+bool ContainsCI(const std::wstring& haystack, const std::string& needle) {
+    if (needle.empty()) return false;
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, needle.c_str(), -1, nullptr, 0);
+    std::wstring wneedle;
+    if (wlen > 0) {
+        wneedle.assign(wlen - 1, L'\0');
+        MultiByteToWideChar(CP_UTF8, 0, needle.c_str(), -1, wneedle.data(), wlen);
+    } else {
+        wneedle.reserve(needle.size());
+        for (unsigned char c : needle) wneedle.push_back(static_cast<wchar_t>(c));
+    }
+    std::wstring hLow = WStringToLower(haystack);
+    std::wstring nLow = WStringToLower(wneedle);
+    return hLow.find(nLow) != std::wstring::npos;
+}
+
+bool IsIntegratedName(const std::wstring& desc) {
+    std::wstring low = WStringToLower(desc);
+    return low.find(L"intel") != std::wstring::npos || low.find(L"uhd") != std::wstring::npos ||
+           low.find(L"arc") != std::wstring::npos || low.find(L"iris") != std::wstring::npos;
+}
+
+bool IsDiscreteName(const std::wstring& desc) {
+    std::wstring low = WStringToLower(desc);
+    return low.find(L"nvidia") != std::wstring::npos || low.find(L"amd") != std::wstring::npos ||
+           low.find(L"radeon") != std::wstring::npos;
+}
+
+} // namespace
 
 namespace media {
 
@@ -36,7 +90,8 @@ void ConfigureLowOverhead(mpv_handle* ctx) {
     SetOption(ctx, "dither", "no");
     SetOption(ctx, "gpu-shader-cache-size", "0");
     SetOption(ctx, "demuxer-max-bytes", "8MiB");
-    SetOption(ctx, "video-sync", "display-vdrop");
+    SetOption(ctx, "video-sync", "desync");
+    SetOption(ctx, "frame-drop", "vo");
     SetOption(ctx, "loop", "inf");
     SetOption(ctx, "panscan", "1.0");
     SetOption(ctx, "d3d11-output-format", "bgra8");
@@ -139,41 +194,110 @@ void LogPlayerInfo(mpv_handle* ctx) {
     }
 }
 
-void AutoConfigureGPU(mpv_handle* ctx, int screenW, int screenH) {
-    bool hasDedicated = false;
+void AutoConfigureGPU(mpv_handle* ctx, int screenW, int screenH, const std::string& gpuPreference) {
+    std::string prefTrimmed = Trim(gpuPreference);
+    std::string prefLower = ToLower(prefTrimmed);
+    if (prefLower.empty()) {
+        prefLower = "auto";
+        prefTrimmed = "auto";
+    }
+    LOG_INFO << "GPU 偏好: " << prefTrimmed;
 
+    std::vector<DXGI_ADAPTER_DESC1> adapters;
     IDXGIFactory1* factory = nullptr;
     HRESULT hr = CreateDXGIFactory1(IID_IDXGIFactory1, (void**)&factory);
     if (SUCCEEDED(hr) && factory) {
         IDXGIAdapter1* adapter = nullptr;
         for (UINT i = 0; factory->EnumAdapters1(i, &adapter) != DXGI_ERROR_NOT_FOUND; i++) {
-            DXGI_ADAPTER_DESC1 desc;
+            DXGI_ADAPTER_DESC1 desc{};
             if (SUCCEEDED(adapter->GetDesc1(&desc))) {
+                adapters.push_back(desc);
                 std::wstring descStr(desc.Description);
                 LOG_INFO << "检测到 GPU[" << i << "]: " << descStr;
-
-                if (!hasDedicated &&
-                    (descStr.find(L"NVIDIA") != std::wstring::npos ||
-                     descStr.find(L"AMD") != std::wstring::npos ||
-                     descStr.find(L"Radeon") != std::wstring::npos)) {
-                    hasDedicated = true;
-                    char narrowName[256] = {};
-                    WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1,
-                                       narrowName, sizeof(narrowName), nullptr, nullptr);
-                    SetOption(ctx, "d3d11-adapter", narrowName);
-                    LOG_INFO << "使用独显渲染: " << narrowName;
-                }
             }
             adapter->Release();
         }
         factory->Release();
     }
 
-    if (!hasDedicated) {
-        LOG_INFO << "仅检测到集成显卡，启用集显优化";
-        SetOption(ctx, "d3d11va-zero-copy", "yes");
-        SetOption(ctx, "correct-downscaling", "no");
-        SetOption(ctx, "linear-downscaling", "no");
+    bool chosen = false;
+
+    if (prefLower == "auto") {
+        for (auto& desc : adapters) {
+            std::wstring descStr(desc.Description);
+            if (IsDiscreteName(descStr)) {
+                char narrowName[256] = {};
+                WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, narrowName, sizeof(narrowName), nullptr, nullptr);
+                SetOption(ctx, "d3d11-adapter", narrowName);
+                LOG_INFO << "GPU 选择结果: " << narrowName << " (原因: auto-独显优先)";
+                LOG_INFO << "使用独显渲染: " << narrowName;
+                chosen = true;
+                break;
+            }
+        }
+        if (!chosen) {
+            LOG_INFO << "仅检测到集成显卡，启用集显优化";
+            SetOption(ctx, "d3d11va-zero-copy", "yes");
+            SetOption(ctx, "correct-downscaling", "no");
+            SetOption(ctx, "linear-downscaling", "no");
+        }
+    } else if (prefLower == "integrated") {
+        for (auto& desc : adapters) {
+            std::wstring descStr(desc.Description);
+            if (IsIntegratedName(descStr)) {
+                char narrowName[256] = {};
+                WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, narrowName, sizeof(narrowName), nullptr, nullptr);
+                SetOption(ctx, "d3d11-adapter", narrowName);
+                LOG_INFO << "GPU 选择结果: " << narrowName << " (原因: integrated-Intel 匹配)";
+                LOG_INFO << "使用集显渲染: " << narrowName;
+                chosen = true;
+                break;
+            }
+        }
+        if (!chosen) {
+            LOG_WARN << "未找到匹配的 GPU: " << prefTrimmed << "，回退到自动选择";
+            SetOption(ctx, "d3d11va-zero-copy", "yes");
+            SetOption(ctx, "correct-downscaling", "no");
+            SetOption(ctx, "linear-downscaling", "no");
+        }
+    } else if (prefLower == "discrete") {
+        for (auto& desc : adapters) {
+            std::wstring descStr(desc.Description);
+            if (IsDiscreteName(descStr)) {
+                char narrowName[256] = {};
+                WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, narrowName, sizeof(narrowName), nullptr, nullptr);
+                SetOption(ctx, "d3d11-adapter", narrowName);
+                LOG_INFO << "GPU 选择结果: " << narrowName << " (原因: discrete-NVIDIA/AMD 匹配)";
+                LOG_INFO << "使用独显渲染: " << narrowName;
+                chosen = true;
+                break;
+            }
+        }
+        if (!chosen) {
+            LOG_WARN << "未找到匹配的 GPU: " << prefTrimmed << "，回退到自动选择";
+            SetOption(ctx, "d3d11va-zero-copy", "yes");
+            SetOption(ctx, "correct-downscaling", "no");
+            SetOption(ctx, "linear-downscaling", "no");
+        }
+    } else {
+        // 显式适配器名：大小写不敏感子串匹配，命中第一个
+        for (auto& desc : adapters) {
+            std::wstring descStr(desc.Description);
+            if (ContainsCI(descStr, prefTrimmed)) {
+                char narrowName[256] = {};
+                WideCharToMultiByte(CP_UTF8, 0, desc.Description, -1, narrowName, sizeof(narrowName), nullptr, nullptr);
+                SetOption(ctx, "d3d11-adapter", narrowName);
+                LOG_INFO << "GPU 选择结果: " << narrowName << " (原因: explicit-子串匹配 \"" << prefTrimmed << "\")";
+                chosen = true;
+                break;
+            }
+        }
+        if (!chosen) {
+            LOG_WARN << "未找到匹配的 GPU: " << prefTrimmed << "，回退到自动选择";
+            SetOption(ctx, "d3d11va-zero-copy", "yes");
+            SetOption(ctx, "correct-downscaling", "no");
+            SetOption(ctx, "linear-downscaling", "no");
+        }
     }
 
     if (screenW > 0 && screenH > 0) {
@@ -209,4 +333,4 @@ void LogDisplayInfo() {
     }
 }
 
-}
+} // namespace media

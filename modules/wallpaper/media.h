@@ -14,5 +14,8 @@ namespace media {
 
     void LogPlayerInfo(mpv_handle* ctx);
     void LogDisplayInfo();
-    void AutoConfigureGPU(mpv_handle* ctx, int screenW, int screenH);
+    void AutoConfigureGPU(mpv_handle* ctx, int screenW, int screenH, const std::string& gpuPreference);
+    inline void AutoConfigureGPU(mpv_handle* ctx, int screenW, int screenH) {
+        AutoConfigureGPU(ctx, screenW, screenH, "auto");
+    }
 }
